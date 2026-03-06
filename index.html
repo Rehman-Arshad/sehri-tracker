@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>Sehri & Aftari Tracker</title>
+  <meta name="description" content="Roommate expense tracker for Sehri and Aftari — track daily meal costs, splits, and balances easily." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ── PIN LOCK OVERLAY ──────────────────────────── -->
+  <div id="pin-overlay" class="pin-overlay hidden">
+    <div class="pin-card">
+      <div class="pin-icon">🔐</div>
+      <h2>Manager Access</h2>
+      <p>Enter your PIN to make changes</p>
+      <div class="pin-dots" id="pin-dots">
+        <span></span><span></span><span></span><span></span>
+      </div>
+      <div class="pin-pad">
+        <button class="pin-btn" onclick="pinInput('1')">1</button>
+        <button class="pin-btn" onclick="pinInput('2')">2</button>
+        <button class="pin-btn" onclick="pinInput('3')">3</button>
+        <button class="pin-btn" onclick="pinInput('4')">4</button>
+        <button class="pin-btn" onclick="pinInput('5')">5</button>
+        <button class="pin-btn" onclick="pinInput('6')">6</button>
+        <button class="pin-btn" onclick="pinInput('7')">7</button>
+        <button class="pin-btn" onclick="pinInput('8')">8</button>
+        <button class="pin-btn" onclick="pinInput('9')">9</button>
+        <button class="pin-btn pin-clear" onclick="pinClear()">⌫</button>
+        <button class="pin-btn" onclick="pinInput('0')">0</button>
+        <button class="pin-btn pin-cancel" onclick="closePinOverlay()">✕</button>
+      </div>
+      <p id="pin-error" class="pin-error hidden">Wrong PIN. Try again.</p>
+    </div>
+  </div>
+
+  <!-- ── SET PIN MODAL ─────────────────────────────── -->
+  <div id="set-pin-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <h3>Set Manager PIN</h3>
+      <p>Choose a 4-digit PIN for manager access</p>
+      <input type="number" id="new-pin-input" class="text-input" placeholder="Enter 4-digit PIN" maxlength="4" />
+      <input type="number" id="confirm-pin-input" class="text-input" placeholder="Confirm PIN" maxlength="4" />
+      <p id="set-pin-error" class="pin-error hidden">PINs don't match or too short</p>
+      <div class="modal-actions">
+        <button class="btn-secondary" onclick="closeSetPinModal()">Cancel</button>
+        <button class="btn-primary" onclick="saveNewPin()">Save PIN</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── ADD MEMBER MODAL ──────────────────────────── -->
+  <div id="add-member-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <h3>Add Roommate</h3>
+      <input type="text" id="new-member-name" class="text-input" placeholder="Enter name" maxlength="30" />
+      <div class="modal-actions">
+        <button class="btn-secondary" onclick="closeAddMemberModal()">Cancel</button>
+        <button class="btn-primary" onclick="submitAddMember()">Add</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── COLLECT MONEY MODAL ───────────────────────── -->
+  <div id="collect-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <h3>💰 New Collection</h3>
+      <p>Record per-head contribution from members</p>
+      <label class="input-label">Date</label>
+      <input type="date" id="collect-date" class="text-input" />
+      <label class="input-label">Amount per person (PKR)</label>
+      <input type="number" id="collect-amount" class="text-input" placeholder="e.g. 1000" />
+      <label class="input-label">Select who paid</label>
+      <div id="collect-member-checkboxes" class="checkbox-grid"></div>
+      <label class="input-label">Note (optional)</label>
+      <input type="text" id="collect-note" class="text-input" placeholder="e.g. Ramadan Week 2" />
+      <div class="modal-actions">
+        <button class="btn-secondary" onclick="closeCollectModal()">Cancel</button>
+        <button class="btn-primary" onclick="submitCollection()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── ADD EXPENSE MODAL ─────────────────────────── -->
+  <div id="expense-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <h3>🍽️ Add Expense</h3>
+      <label class="input-label">Date</label>
+      <input type="date" id="exp-date" class="text-input" />
+      <label class="input-label">Description (optional)</label>
+      <input type="text" id="exp-desc" class="text-input" placeholder="e.g. 6 March Sehri + Aftari" />
+
+      <div id="expense-splits-container">
+        <!-- dynamic split rows injected here -->
+      </div>
+
+      <button class="btn-add-split" onclick="addSplitRow()">+ Add Another Split</button>
+
+      <div class="modal-actions">
+        <button class="btn-secondary" onclick="closeExpenseModal()">Cancel</button>
+        <button class="btn-primary" onclick="submitExpense()">Save Expense</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── HEADER ────────────────────────────────────── -->
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="header-title">
+        <span class="header-emoji">🌙</span>
+        <div>
+          <h1>Sehri & Aftari</h1>
+          <span class="header-sub">Expense Tracker</span>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button class="icon-btn" id="manager-badge" onclick="toggleManagerMode()" title="Manager Mode">
+          <span id="manager-icon">🔒</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── MAIN CONTENT ──────────────────────────────── -->
+  <main class="app-main">
+
+    <!-- DASHBOARD TAB -->
+    <section id="tab-dashboard" class="tab-section active">
+
+      <!-- Summary Cards -->
+      <div class="summary-grid">
+        <div class="summary-card pool">
+          <div class="summary-label">Pool Balance</div>
+          <div class="summary-value" id="pool-balance">PKR 0</div>
+          <div class="summary-sub" id="pool-sub">Total collected − spent</div>
+        </div>
+      </div>
+
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-icon">📥</div>
+          <div class="stat-label">Collected</div>
+          <div class="stat-value" id="total-collected">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">🍽️</div>
+          <div class="stat-label">Spent</div>
+          <div class="stat-value" id="total-spent">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">👥</div>
+          <div class="stat-label">Members</div>
+          <div class="stat-value" id="total-members">0</div>
+        </div>
+      </div>
+
+      <!-- Today & Manager Actions -->
+      <div class="section-header">
+        <h2 class="section-title">Quick Actions</h2>
+        <span class="manager-only-label" id="actions-lock-label">🔒 Manager Only</span>
+      </div>
+
+      <div class="action-grid" id="manager-actions">
+        <button class="action-card" onclick="requireManager(openExpenseModal)">
+          <span class="action-icon">➕</span>
+          <span class="action-label">Add Expense</span>
+        </button>
+        <button class="action-card" onclick="requireManager(openCollectModal)">
+          <span class="action-icon">💰</span>
+          <span class="action-label">Collect Money</span>
+        </button>
+      </div>
+
+      <!-- Recent entries -->
+      <div class="section-header">
+        <h2 class="section-title">Recent Entries</h2>
+      </div>
+      <div id="recent-list" class="entry-list">
+        <div class="empty-state">No entries yet</div>
+      </div>
+    </section>
+
+    <!-- MEMBERS TAB -->
+    <section id="tab-members" class="tab-section">
+      <div class="section-header">
+        <h2 class="section-title">Roommates</h2>
+        <button class="btn-small" onclick="requireManager(openAddMemberModal)">+ Add</button>
+      </div>
+      <div id="members-list" class="members-list">
+        <div class="empty-state">No members added yet</div>
+      </div>
+
+      <div class="section-header" style="margin-top:24px">
+        <h2 class="section-title">Contribution History</h2>
+      </div>
+      <div id="contributions-list" class="entry-list">
+        <div class="empty-state">No collections yet</div>
+      </div>
+    </section>
+
+    <!-- HISTORY TAB -->
+    <section id="tab-history" class="tab-section">
+      <div class="section-header">
+        <h2 class="section-title">Expense History</h2>
+        <div class="filter-btns">
+          <button class="filter-btn active" onclick="filterHistory('all', this)">All</button>
+          <button class="filter-btn" onclick="filterHistory('sehri', this)">Sehri</button>
+          <button class="filter-btn" onclick="filterHistory('aftari', this)">Aftari</button>
+        </div>
+      </div>
+      <div id="history-list" class="entry-list">
+        <div class="empty-state">No expenses yet</div>
+      </div>
+    </section>
+
+    <!-- SETTINGS TAB -->
+    <section id="tab-settings" class="tab-section">
+      <div class="settings-section">
+        <h2 class="section-title">Manager Settings</h2>
+        <div class="settings-card">
+          <div class="settings-row">
+            <div>
+              <div class="settings-label">Manager PIN</div>
+              <div class="settings-desc">Required to add/edit data</div>
+            </div>
+            <button class="btn-small" onclick="openSetPinModal()">Change PIN</button>
+          </div>
+          <div class="settings-row">
+            <div>
+              <div class="settings-label">Manager Mode</div>
+              <div class="settings-desc" id="manager-status-text">Not active</div>
+            </div>
+            <button class="btn-small" onclick="toggleManagerMode()">Toggle</button>
+          </div>
+        </div>
+
+        <h2 class="section-title" style="margin-top:24px">Firebase Config</h2>
+        <div class="settings-card firebase-info">
+          <p>🔥 Paste your Firebase config below to enable real-time sync across all devices.</p>
+          <textarea id="firebase-config-input" class="code-input" rows="8" placeholder='{
+  "apiKey": "...",
+  "authDomain": "...",
+  "projectId": "...",
+  "storageBucket": "...",
+  "messagingSenderId": "...",
+  "appId": "..."
+}'></textarea>
+          <button class="btn-primary" style="margin-top:12px;width:100%" onclick="saveFirebaseConfig()">Save Firebase Config</button>
+          <p id="firebase-status" class="firebase-status"></p>
+        </div>
+
+        <h2 class="section-title" style="margin-top:24px">Data</h2>
+        <div class="settings-card">
+          <div class="settings-row">
+            <div>
+              <div class="settings-label">Export Data</div>
+              <div class="settings-desc">Download as JSON file</div>
+            </div>
+            <button class="btn-small" onclick="exportData()">Export</button>
+          </div>
+          <div class="settings-row" style="margin-top: 12px">
+            <div>
+              <div class="settings-label" style="color:var(--red)">Clear All Data</div>
+              <div class="settings-desc">Permanently remove everything</div>
+            </div>
+            <button class="btn-small btn-danger" onclick="requireManager(clearAllData)">Clear</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ── BOTTOM NAV ────────────────────────────────── -->
+  <nav class="bottom-nav">
+    <button class="nav-btn active" onclick="switchTab('dashboard', this)" id="nav-dashboard">
+      <span class="nav-icon">🏠</span>
+      <span class="nav-label">Home</span>
+    </button>
+    <button class="nav-btn" onclick="switchTab('members', this)" id="nav-members">
+      <span class="nav-icon">👥</span>
+      <span class="nav-label">Members</span>
+    </button>
+    <button class="nav-btn" onclick="switchTab('history', this)" id="nav-history">
+      <span class="nav-icon">📋</span>
+      <span class="nav-label">History</span>
+    </button>
+    <button class="nav-btn" onclick="switchTab('settings', this)" id="nav-settings">
+      <span class="nav-icon">⚙️</span>
+      <span class="nav-label">Settings</span>
+    </button>
+  </nav>
+
+  <!-- Firebase Compat SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
