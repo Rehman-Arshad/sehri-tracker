@@ -651,12 +651,29 @@ function exportData() {
   URL.revokeObjectURL(url);
 }
 
-function clearAllData() {
+async function clearAllData() {
   if (!confirm('⚠️ This will permanently delete ALL data. Are you sure?')) return;
   if (!confirm('Last warning — really delete everything?')) return;
+
+  // Delete from Firebase first (all 3 collections)
+  if (db) {
+    try {
+      const collections = ['members', 'expenses', 'collections'];
+      for (const col of collections) {
+        const snap = await db.collection(col).get();
+        const deletes = snap.docs.map(d => db.collection(col).doc(d.id).delete());
+        await Promise.all(deletes);
+      }
+    } catch(e) {
+      console.error('Firebase clear error', e);
+    }
+  }
+
+  // Clear local state
   state = { members: [], expenses: [], collections: [] };
   saveToLocalStorage();
   renderAll();
+  alert('✅ All data cleared!');
 }
 
 /* ── TAB NAVIGATION ────────────────────────────────────── */
