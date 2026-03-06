@@ -21,19 +21,27 @@ let state = {
   collections: [], // { id, date, amountPerPerson, memberIds, note }
 };
 
+/* ── ACCESS LEVELS ──────────────────────────────────── */
+// 0 = Guest: dashboard summary only (no collections, no member details)
+// 1 = Team:  view all tabs, no add/edit/delete
+// 2 = Admin: full access
+const ACCESS = { GUEST: 0, TEAM: 1, ADMIN: 2 };
+
+const ADMIN_PIN_KEY = 'sehri_admin_pin';   // default: 1234
+const TEAM_PIN_KEY  = 'sehri_team_pin';    // default: 0000
+const STATE_KEY     = 'sehri_state_v2';
+
 let db = null;
-let isManagerMode = false;
+let accessLevel = ACCESS.GUEST;
 let pendingAction = null;
+let pendingPinMode = null;  // 'team' | 'admin' | 'elevate'
 let pinBuffer = '';
 let splitRowCount = 0;
 let currentHistoryFilter = 'all';
 let assignSehri = true;
 let assignAftari = false;
 
-const PIN_KEY   = 'sehri_manager_pin';
-const STATE_KEY = 'sehri_state_v2';
-
-/* ── BOOT ─────────────────────────────────────────────── */
+/* ── BOOT ───────────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', () => {
   loadFromLocalStorage();
   renderAll();
@@ -94,10 +102,12 @@ function initFirebase(config) {
 
 function hideLoadingScreen() {
   setTimeout(() => {
-    const el = document.getElementById('loading-screen');
-    if (el) el.classList.add('done');
+    document.getElementById('loading-screen')?.classList.add('done');
+    // Show access gate after loading
+    showAccessGate();
   }, 1200);
 }
+
 
 function setFbStatus(msg, cls) {
   ['firebase-status','firebase-status-small'].forEach(id => {
@@ -251,7 +261,7 @@ function memberCardHTML(m, context) {
         <div class="member-balance ${balClass}">${balSign}${formatPKR(balance)}</div>
         <div class="member-balance-label">${balance >= 0 ? 'credit' : 'owes'}</div>
       </div>
-      ${isManagerMode ? `<button class="member-remove" onclick="removeMember('${m.id}')">🗑️</button>` : ''}
+      ${accessLevel >= ACCESS.ADMIN ? `<button class="member-remove" onclick="removeMember('${m.id}')">🗑️</button>` : ''}
     </div>`;
 }
 
@@ -319,7 +329,7 @@ function renderEntryCard(entry, showDelete) {
         </div>
         <div style="display:flex;align-items:center;gap:8px">
           <span class="entry-amount collection">+${formatPKR(total)}</span>
-          ${showDelete&&isManagerMode?`<button class="entry-delete" onclick="deleteCollection('${entry.id}')">🗑️</button>`:''}
+          ${showDelete&&accessLevel >= ACCESS.ADMIN?`<button class="entry-delete" onclick="deleteCollection('${entry.id}')">🗑️</button>`:''}
         </div>
       </div>
       <div class="entry-splits">
@@ -349,7 +359,7 @@ function renderEntryCard(entry, showDelete) {
       </div>
       <div style="display:flex;align-items:center;gap:8px">
         <span class="entry-amount expense">−${formatPKR(totalAmt)}</span>
-        ${showDelete&&isManagerMode?`<button class="entry-delete" onclick="deleteExpense('${entry.id}')">🗑️</button>`:''}
+        ${showDelete&&accessLevel >= ACCESS.ADMIN?`<button class="entry-delete" onclick="deleteExpense('${entry.id}')">🗑️</button>`:''}
       </div>
     </div>
     <div class="entry-splits">${splitsHTML}</div>
@@ -578,59 +588,136 @@ function removeMember(id) {
   toast('Member removed','info');
 }
 
-/* ── PIN SYSTEM ───────────────────────────────────────── */
-function requireManager(action) {
-  if (isManagerMode) { action(); return; }
-  pendingAction = action;
-  pinBuffer = '';
-  updatePinDots();
-  document.getElementById('pin-error').classList.add('hidden');
-  document.getElementById('pin-overlay').classList.remove('hidden');
+/* ── ACCESS GATE ──────────────────────────────────────── */
+function showAccessGate() {
+  document.getElementById('access-gate')?.classList.remove('hidden');
 }
 
+function hideAccessGate() {
+  document.getElementById('access-gate')?.classList.add('hidden');
+}
+
+function enterAsGuest() {
+  accessLevel = ACCESS.GUEST;
+  hideAccessGate();
+  applyAccessLevel();
+  toast('Viewing as Guest — dashboard summary only', 'info');
+}
+
+function openAccessPin(mode) {
+  pendingPinMode = mode;
+  pendingAction = null;
+  pinBuffer = '';
+  updatePinDots();
+  document.getElementById('pin-error')?.classList.add('hidden');
+  const icon  = document.getElementById('pin-overlay-icon');
+  const title = document.getElementById('pin-overlay-title');
+  const sub   = document.getElementById('pin-overlay-sub');
+  if (mode === 'team') {
+    if (icon)  icon.textContent  = '👥';
+    if (title) title.textContent = 'Team Access';
+    if (sub)   sub.textContent   = 'Enter the Team PIN';
+  } else {
+    if (icon)  icon.textContent  = '🔐';
+    if (title) title.textContent = 'Admin Access';
+    if (sub)   sub.textContent   = 'Enter the Admin PIN';
+  }
+  document.getElementById('pin-overlay')?.classList.remove('hidden');
+}
+
+/* ── REQUIRE GUARDS ───────────────────────────────────── */
+function requireAdmin(action) {
+  if (accessLevel >= ACCESS.ADMIN) { action(); return; }
+  pendingAction = action;
+  openAccessPin('admin');
+}
+
+function requireTeam(action) {
+  if (accessLevel >= ACCESS.TEAM) { action(); return; }
+  pendingAction = action;
+  openAccessPin('team');
+}
+
+// alias so old code still works
+function requireManager(action) { requireAdmin(action); }
+function toggleManagerMode() {
+  if (accessLevel >= ACCESS.ADMIN) {
+    accessLevel = ACCESS.TEAM;
+    applyAccessLevel();
+    toast('Dropped to Team view', 'info');
+  } else {
+    openAccessPin('admin');
+  }
+}
+
+/* ── PIN SYSTEM ──────────────────────────────────────────── */
 function pinInput(digit) {
-  if (pinBuffer.length>=4) return;
+  if (pinBuffer.length >= 4) return;
   pinBuffer += digit;
   updatePinDots();
-  if (pinBuffer.length===4) checkPin();
+  if (pinBuffer.length === 4) checkPin();
 }
 function pinClear() {
   pinBuffer = pinBuffer.slice(0,-1);
   updatePinDots();
 }
 function updatePinDots() {
-  document.querySelectorAll('#pin-dots span').forEach((d,i)=>d.classList.toggle('filled',i<pinBuffer.length));
+  document.querySelectorAll('#pin-dots span').forEach((d,i) => d.classList.toggle('filled', i < pinBuffer.length));
 }
+
 function checkPin() {
-  const saved = localStorage.getItem(PIN_KEY)||'1234';
-  if (pinBuffer===saved) {
-    isManagerMode = true;
+  const mode = pendingPinMode;
+  const adminPin = localStorage.getItem(ADMIN_PIN_KEY) || '1234';
+  const teamPin  = localStorage.getItem(TEAM_PIN_KEY)  || '0000';
+
+  let granted = false;
+
+  if (mode === 'admin' && pinBuffer === adminPin) {
+    accessLevel = ACCESS.ADMIN; granted = true;
+  } else if (mode === 'team' && pinBuffer === teamPin) {
+    accessLevel = ACCESS.TEAM; granted = true;
+  } else if (mode === 'admin' && pinBuffer === teamPin) {
+    // Entered team PIN on admin screen — grant team
+    accessLevel = ACCESS.TEAM; granted = true;
+  }
+
+  if (granted) {
     closePinOverlay();
-    renderAll();
+    hideAccessGate();
+    applyAccessLevel();
+    const labels = { [ACCESS.TEAM]: 'Team view unlocked 👥', [ACCESS.ADMIN]: 'Admin mode active 🔐' };
+    toast(labels[accessLevel] || 'Access granted', 'success');
     if (pendingAction) { pendingAction(); pendingAction = null; }
-    toast('Manager mode ON','success');
   } else {
-    document.getElementById('pin-error').classList.remove('hidden');
+    document.getElementById('pin-error')?.classList.remove('hidden');
     pinBuffer = ''; updatePinDots();
     const card = document.querySelector('.pin-card');
     if (card) { card.style.animation='none'; card.offsetHeight; card.style.animation='shake 0.4s ease'; }
   }
 }
+
 function closePinOverlay() {
-  document.getElementById('pin-overlay').classList.add('hidden');
+  document.getElementById('pin-overlay')?.classList.add('hidden');
   pinBuffer = ''; updatePinDots();
 }
-function toggleManagerMode() {
-  if (isManagerMode) {
-    isManagerMode = false; pendingAction = null;
-    renderAll(); toast('Manager mode OFF','info');
-  } else requireManager(()=>{});
+
+/* ── APPLY ACCESS LEVEL ─────────────────────────────────── */
+function applyAccessLevel() {
+  const body = document.body;
+  body.classList.toggle('guest-mode', accessLevel === ACCESS.GUEST);
+
+  // If currently on a hidden tab, switch to dashboard
+  if (accessLevel === ACCESS.GUEST) {
+    switchTab('dashboard', document.getElementById('nav-dashboard'));
+  }
+  renderAll();
+  updateManagerUI();
 }
 
 function updateManagerUI() {
-  const icon = document.getElementById('manager-icon');
-  const label = document.getElementById('manager-label');
-  const badge = document.getElementById('manager-badge');
+  const icon    = document.getElementById('manager-icon');
+  const label   = document.getElementById('manager-label');
+  const badge   = document.getElementById('manager-badge');
   const statusEl = document.getElementById('manager-status-text');
   const toggleSetting = document.getElementById('manager-toggle-setting');
   const actions = document.getElementById('quick-actions');

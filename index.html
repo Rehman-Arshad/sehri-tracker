@@ -15,6 +15,41 @@
   <!-- ── TOAST ─────────────────────────────────────────── -->
   <div id="toast-container" class="toast-container"></div>
 
+  <!-- ── ACCESS GATE (shown on every visit) ───────────── -->
+  <div id="access-gate" class="access-gate hidden">
+    <div class="access-gate-card">
+      <div class="access-gate-moon">🌙</div>
+      <h2 class="access-gate-title">Sehri &amp; Aftari Tracker</h2>
+      <p class="access-gate-sub">How do you want to access?</p>
+      <div class="access-options">
+        <button class="access-option-btn team-option" onclick="openAccessPin('team')">
+          <span class="access-opt-icon">👥</span>
+          <div>
+            <div class="access-opt-label">Team Member</div>
+            <div class="access-opt-desc">View balances &amp; history</div>
+          </div>
+          <span class="access-opt-arrow">›</span>
+        </button>
+        <button class="access-option-btn admin-option" onclick="openAccessPin('admin')">
+          <span class="access-opt-icon">🔐</span>
+          <div>
+            <div class="access-opt-label">Admin</div>
+            <div class="access-opt-desc">Full access &amp; edit</div>
+          </div>
+          <span class="access-opt-arrow">›</span>
+        </button>
+        <button class="access-option-btn guest-option" onclick="enterAsGuest()">
+          <span class="access-opt-icon">👁️</span>
+          <div>
+            <div class="access-opt-label">View Summary Only</div>
+            <div class="access-opt-desc">Pool balance &amp; today's spend</div>
+          </div>
+          <span class="access-opt-arrow">›</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- ── LOADING SCREEN ────────────────────────────────── -->
   <div id="loading-screen" class="loading-screen">
     <div class="loading-content">
@@ -27,9 +62,9 @@
   <!-- ── PIN LOCK OVERLAY ──────────────────────────────── -->
   <div id="pin-overlay" class="pin-overlay hidden">
     <div class="pin-card">
-      <div class="pin-icon">🔐</div>
-      <h2>Manager Access</h2>
-      <p>Enter your 4-digit PIN</p>
+      <div class="pin-icon" id="pin-overlay-icon">🔐</div>
+      <h2 id="pin-overlay-title">Enter PIN</h2>
+      <p id="pin-overlay-sub">Enter your 4-digit PIN</p>
       <div class="pin-dots" id="pin-dots">
         <span></span><span></span><span></span><span></span>
       </div>
@@ -140,8 +175,7 @@
         <div class="header-icon-wrap">🌙</div>
         <div>
           <h1>Sehri & Aftari</h1>
-          <span class="header-sub">Expense Tracker • Ramadan 2025</span>
-        </div>
+          <span class="header-sub">Expense Tracker • Ramadan 2026
       </div>
       <button class="manager-toggle-btn" id="manager-badge" onclick="toggleManagerMode()">
         <span id="manager-icon">🔒</span>
@@ -297,14 +331,25 @@
     <!-- ═══ SETTINGS TAB ═══════════════════════════════ -->
     <section id="tab-settings" class="tab-section">
       <div class="settings-group">
-        <div class="settings-group-title">Manager</div>
+        <div class="settings-group-title">Access Control</div>
         <div class="settings-card">
-          <div class="settings-row" onclick="openSetPinModal()">
+          <div class="settings-row" onclick="requireAdmin(openSetAdminPinModal)">
             <div class="settings-row-left">
-              <span class="settings-row-icon">🔑</span>
+              <span class="settings-row-icon">🔐</span>
               <div>
-                <div class="settings-label">Change PIN</div>
-                <div class="settings-desc">Update manager access PIN</div>
+                <div class="settings-label">Admin PIN</div>
+                <div class="settings-desc">Full edit access • default: 1234</div>
+              </div>
+            </div>
+            <span class="settings-chevron">›</span>
+          </div>
+          <div class="settings-divider"></div>
+          <div class="settings-row" onclick="requireAdmin(openSetTeamPinModal)">
+            <div class="settings-row-left">
+              <span class="settings-row-icon">👥</span>
+              <div>
+                <div class="settings-label">Team PIN</div>
+                <div class="settings-desc">View-only access • default: 0000</div>
               </div>
             </div>
             <span class="settings-chevron">›</span>
@@ -314,11 +359,11 @@
             <div class="settings-row-left">
               <span class="settings-row-icon">🛡️</span>
               <div>
-                <div class="settings-label">Manager Status</div>
-                <div class="settings-desc" id="manager-status-text">Not active</div>
+                <div class="settings-label">Current Access Level</div>
+                <div class="settings-desc" id="manager-status-text">Guest</div>
               </div>
             </div>
-            <button class="toggle-btn" onclick="toggleManagerMode()" id="manager-toggle-setting">OFF</button>
+            <button class="toggle-btn" onclick="showAccessGate()" id="manager-toggle-setting">Switch</button>
           </div>
         </div>
       </div>
@@ -371,7 +416,7 @@
         </div>
       </div>
 
-      <div class="app-version">Sehri & Aftari Tracker • Ramadan 2025</div>
+      <div class="app-version">Sehri & Aftari Tracker • Ramadan 2026</div>
     </section>
 
   </main>
