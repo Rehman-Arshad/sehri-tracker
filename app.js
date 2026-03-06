@@ -42,22 +42,31 @@ let assignSehri = true;
 let assignAftari = false;
 
 /* ── BOOT ───────────────────────────────────────────────── */
-document.addEventListener('DOMContentLoaded', () => {
-  loadFromLocalStorage();
-  renderAll();
-  setTodayDefault();
-  // Guaranteed: loading screen always hides within 2.5s
-  setTimeout(hideLoadingScreen, 2500);
-  initFirebase(FIREBASE_CONFIG);
-});
-
+// Schedule the timeout IMMEDIATELY — before anything else can throw
 let _loadingHidden = false;
 function hideLoadingScreen() {
   if (_loadingHidden) return;
   _loadingHidden = true;
-  document.getElementById('loading-screen')?.classList.add('done');
-  showAccessGate();
+  const ls = document.getElementById('loading-screen');
+  if (ls) ls.classList.add('done');
+  const ag = document.getElementById('access-gate');
+  if (ag) ag.classList.remove('hidden');
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+  // MUST be first — guarantees screen hides even if everything else crashes
+  setTimeout(hideLoadingScreen, 2000);
+
+  try {
+    loadFromLocalStorage();
+    renderAll();
+    setTodayDefault();
+    initFirebase(FIREBASE_CONFIG);
+  } catch(e) {
+    console.error('Boot error:', e);
+    hideLoadingScreen();
+  }
+});
 
 
 function setTodayDefault() {
