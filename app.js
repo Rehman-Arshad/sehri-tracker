@@ -57,6 +57,20 @@ document.addEventListener('DOMContentLoaded', () => {
   // Timeout FIRST — screen always hides after 2s no matter what
   setTimeout(hideLoadingScreen, 2000);
 
+  // Global Keyboard Support for PIN Entry
+  document.addEventListener('keydown', (e) => {
+    const pinOverlay = document.getElementById('pin-overlay');
+    if (!pinOverlay || pinOverlay.classList.contains('hidden')) return;
+    
+    if (e.key >= '0' && e.key <= '9') {
+      pinInput(e.key);
+    } else if (e.key === 'Backspace') {
+      pinClear();
+    } else if (e.key === 'Escape') {
+      closePinOverlay();
+    }
+  });
+
   // Render with local data (won't block Firebase if it throws)
   try {
     loadFromLocalStorage();
