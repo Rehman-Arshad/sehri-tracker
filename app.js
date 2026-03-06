@@ -54,16 +54,24 @@ function hideLoadingScreen() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  // MUST be first — guarantees screen hides even if everything else crashes
+  // Timeout FIRST — screen always hides after 2s no matter what
   setTimeout(hideLoadingScreen, 2000);
 
+  // Render with local data (won't block Firebase if it throws)
   try {
     loadFromLocalStorage();
     renderAll();
     setTodayDefault();
+  } catch(e) {
+    console.error('Render error:', e);
+  }
+
+  // Firebase in its OWN try/catch — always runs, even if render failed
+  try {
     initFirebase(FIREBASE_CONFIG);
   } catch(e) {
-    console.error('Boot error:', e);
+    console.error('Firebase error:', e);
+    setFbStatus('❌ Init failed: ' + e.message, 'err');
     hideLoadingScreen();
   }
 });
