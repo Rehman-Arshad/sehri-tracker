@@ -1,60 +1,9 @@
-// ─────────────────────────────────────────────
-//  Sehri & Aftari Expense Tracker — app.js
-//  Storage: localStorage (offline) + Firebase (online)
-// ─────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────
+//  Sehri & Aftari Expense Tracker — app.js v2
+//  Features: Separate Sehri/Aftari groups, toasts, Firebase
+// ─────────────────────────────────────────────────────────
 
-/* ── STATE ─────────────────────────────────────────────── */
-let state = {
-  members: [],       // { id, name }
-  expenses: [],      // { id, date, desc, splits: [{type, amount, memberIds}] }
-  collections: [],   // { id, date, amountPerPerson, memberIds, note }
-};
-
-let isManagerMode = false;
-let pendingAction = null;
-let pinBuffer = '';
-const PIN_KEY = 'sehri_manager_pin';
-const STATE_KEY = 'sehri_state';
-let splitRowCount = 0;
-let currentHistoryFilter = 'all';
-
-// Firebase refs (set after config loaded)
-let db = null;
-let fbExpensesRef = null;
-let fbMembersRef = null;
-let fbCollectionsRef = null;
-
-/* ── INIT ──────────────────────────────────────────────── */
-document.addEventListener('DOMContentLoaded', () => {
-  loadFromLocalStorage();
-  tryInitFirebase();
-  renderAll();
-  setTodayAsDefault();
-});
-
-function setTodayAsDefault() {
-  const today = new Date().toISOString().split('T')[0];
-  const dateInputs = ['exp-date', 'collect-date'];
-  dateInputs.forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.value = today;
-  });
-}
-
-/* ── LOCAL STORAGE ─────────────────────────────────────── */
-function saveToLocalStorage() {
-  localStorage.setItem(STATE_KEY, JSON.stringify(state));
-}
-
-function loadFromLocalStorage() {
-  const raw = localStorage.getItem(STATE_KEY);
-  if (raw) {
-    try { state = { ...state, ...JSON.parse(raw) }; }
-    catch(e) { console.warn('State parse error', e); }
-  }
-}
-
-/* ── FIREBASE CONFIG (hardcoded so everyone auto-connects) ── */
+/* ── FIREBASE CONFIG ──────────────────────────────────── */
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyB5xaEAc0K6mpBioSD0IpxyIJdbPB7pXI8",
   authDomain: "calculation-be25c.firebaseapp.com",
@@ -65,335 +14,427 @@ const FIREBASE_CONFIG = {
   measurementId: "G-T14CWTR10Q"
 };
 
-/* ── FIREBASE SETUP ────────────────────────────────────── */
-function tryInitFirebase() {
+/* ── STATE ────────────────────────────────────────────── */
+let state = {
+  members: [],     // { id, name, inSehri, inAftari }
+  expenses: [],    // { id, date, desc, splits:[{type,amount,memberIds}] }
+  collections: [], // { id, date, amountPerPerson, memberIds, note }
+};
+
+let db = null;
+let isManagerMode = false;
+let pendingAction = null;
+let pinBuffer = '';
+let splitRowCount = 0;
+let currentHistoryFilter = 'all';
+let assignSehri = true;
+let assignAftari = false;
+
+const PIN_KEY   = 'sehri_manager_pin';
+const STATE_KEY = 'sehri_state_v2';
+
+/* ── BOOT ─────────────────────────────────────────────── */
+document.addEventListener('DOMContentLoaded', () => {
+  loadFromLocalStorage();
+  renderAll();
+  setTodayDefault();
   initFirebase(FIREBASE_CONFIG);
+});
+
+function setTodayDefault() {
+  const today = new Date().toISOString().split('T')[0];
+  ['exp-date','collect-date'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = today;
+  });
 }
 
+/* ── LOCAL STORAGE ────────────────────────────────────── */
+function saveToLocalStorage() {
+  try { localStorage.setItem(STATE_KEY, JSON.stringify(state)); } catch(_) {}
+}
+function loadFromLocalStorage() {
+  try {
+    const raw = localStorage.getItem(STATE_KEY);
+    if (raw) state = { ...state, ...JSON.parse(raw) };
+  } catch(_) {}
+}
+
+/* ── FIREBASE ─────────────────────────────────────────── */
 function initFirebase(config) {
   try {
-    // Delete existing app if any
-    try { firebase.app('sehri-tracker').delete(); } catch(_) {}
-
-    const app = firebase.initializeApp(config, 'sehri-tracker');
+    try { firebase.app('sehri').delete(); } catch(_) {}
+    const app = firebase.initializeApp(config, 'sehri');
     db = firebase.firestore(app);
 
-    // Listen: members
     db.collection('members').onSnapshot(snap => {
       state.members = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      saveToLocalStorage();
-      renderAll();
+      saveToLocalStorage(); renderAll();
+    }, err => {
+      setFbStatus('⚠️ Sync error: ' + err.message, 'err');
     });
 
-    // Listen: expenses
-    db.collection('expenses').orderBy('date', 'desc').onSnapshot(snap => {
+    db.collection('expenses').orderBy('date','desc').onSnapshot(snap => {
       state.expenses = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      saveToLocalStorage();
-      renderAll();
+      saveToLocalStorage(); renderAll();
     });
 
-    // Listen: collections
-    db.collection('collections').orderBy('date', 'desc').onSnapshot(snap => {
+    db.collection('collections').orderBy('date','desc').onSnapshot(snap => {
       state.collections = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      saveToLocalStorage();
-      renderAll();
+      saveToLocalStorage(); renderAll();
     });
 
-    setFirebaseStatus('✅ Connected to Firebase — real-time sync active', 'ok');
+    setFbStatus('✅ Real-time sync active', 'ok');
+    hideLoadingScreen();
   } catch(e) {
-    console.error('Firebase init error', e);
-    setFirebaseStatus('❌ Firebase connection failed. Check your config.', 'err');
+    setFbStatus('❌ Firebase failed: ' + e.message, 'err');
+    hideLoadingScreen();
   }
 }
 
-
-function setFirebaseStatus(msg, cls) {
-  const el = document.getElementById('firebase-status');
-  if (!el) return;
-  el.textContent = msg;
-  el.className = 'firebase-status ' + cls;
+function hideLoadingScreen() {
+  setTimeout(() => {
+    const el = document.getElementById('loading-screen');
+    if (el) el.classList.add('done');
+  }, 1200);
 }
 
-/* ── FIREBASE WRITE HELPERS ────────────────────────────── */
-async function fbSet(collName, id, data) {
-  if (!db) return;
-  await db.collection(collName).doc(id).set(data);
+function setFbStatus(msg, cls) {
+  ['firebase-status','firebase-status-small'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.textContent = msg; el.className = 'firebase-status ' + cls; }
+  });
 }
 
-async function fbDelete(collName, id) {
-  if (!db) return;
-  await db.collection(collName).doc(id).delete();
+async function fbSet(col, id, data) {
+  if (db) await db.collection(col).doc(id).set(data);
+}
+async function fbDelete(col, id) {
+  if (db) await db.collection(col).doc(id).delete();
 }
 
-/* ── RENDER ALL ────────────────────────────────────────── */
+/* ── TOAST SYSTEM ─────────────────────────────────────── */
+function toast(msg, type = 'info', duration = 3000) {
+  const icons = { success: '✅', error: '❌', info: 'ℹ️', warning: '⚠️' };
+  const container = document.getElementById('toast-container');
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.innerHTML = `<span class="toast-icon">${icons[type]||'ℹ️'}</span><span>${msg}</span>`;
+  container.appendChild(el);
+  setTimeout(() => {
+    el.classList.add('hiding');
+    setTimeout(() => el.remove(), 300);
+  }, duration);
+}
+
+/* ── RENDER ALL ───────────────────────────────────────── */
 function renderAll() {
   renderDashboard();
-  renderMembers();
+  renderSehriMembers();
+  renderAftariMembers();
   renderHistory();
   renderContributions();
   updateManagerUI();
 }
 
-/* ── DASHBOARD ─────────────────────────────────────────── */
+/* ── DASHBOARD ────────────────────────────────────────── */
 function renderDashboard() {
-  const totalCollected = getTotalCollected();
-  const totalSpent = getTotalSpent();
-  const poolBalance = totalCollected - totalSpent;
+  const collected = getTotalCollected();
+  const spent     = getTotalSpent();
+  const balance   = collected - spent;
 
-  document.getElementById('pool-balance').textContent = formatPKR(poolBalance);
-  document.getElementById('pool-balance').style.color = poolBalance < 0 ? 'var(--red)' : '#fff';
-  document.getElementById('pool-sub').textContent =
-    `${formatPKR(totalCollected)} collected − ${formatPKR(totalSpent)} spent`;
-  document.getElementById('total-collected').textContent = formatPKR(totalCollected);
-  document.getElementById('total-spent').textContent = formatPKR(totalSpent);
-  document.getElementById('total-members').textContent = state.members.length;
+  const balEl = document.getElementById('pool-balance');
+  if (balEl) {
+    balEl.textContent = formatPKR(balance);
+    balEl.style.textShadow = balance < 0
+      ? '0 0 30px rgba(255,90,122,0.5)'
+      : '0 0 30px rgba(0,212,170,0.4)';
+  }
 
-  // Recent entries: last 5 expenses + collections merged and sorted
+  setEl('pool-sub', `${formatPKR(collected)} collected − ${formatPKR(spent)} spent`);
+  setEl('total-collected', formatPKR(collected));
+  setEl('total-spent', formatPKR(spent));
+  setEl('total-members', String(state.members.length));
+  setEl('stat-collected-count', state.collections.length + ' rounds');
+  setEl('stat-expense-count', state.expenses.length + ' entries');
+
+  // Sehri / Aftari today summary
+  const today = new Date().toISOString().split('T')[0];
+  const todayExp = state.expenses.filter(e => e.date === today);
+  let sehriToday = 0, aftariToday = 0;
+  todayExp.forEach(e => e.splits.forEach(sp => {
+    if (sp.type === 'sehri') sehriToday += Number(sp.amount);
+    if (sp.type === 'aftari') aftariToday += Number(sp.amount);
+  }));
+  setEl('sehri-today', formatPKR(sehriToday));
+  setEl('aftari-today', formatPKR(aftariToday));
+  setEl('sehri-members-count', getSehriMembers().length + ' members');
+  setEl('aftari-members-count', getAftariMembers().length + ' members');
+
+  // Recent entries
   const recent = getRecentEntries(5);
   const el = document.getElementById('recent-list');
+  if (!el) return;
   if (recent.length === 0) {
-    el.innerHTML = '<div class="empty-state">No entries yet — add your first expense!</div>';
+    el.innerHTML = `<div class="empty-state">
+      <div class="empty-icon">🌙</div>
+      <div class="empty-text">No entries yet</div>
+      <div class="empty-sub">Add your first expense to get started</div>
+    </div>`;
   } else {
-    el.innerHTML = recent.map(entry => renderEntryCard(entry, false)).join('');
+    el.innerHTML = recent.map(e => renderEntryCard(e, false)).join('');
   }
 }
 
 function getTotalCollected() {
-  return state.collections.reduce((sum, c) => {
-    return sum + (c.amountPerPerson * c.memberIds.length);
-  }, 0);
+  return state.collections.reduce((s,c) => s + Number(c.amountPerPerson) * c.memberIds.length, 0);
 }
-
 function getTotalSpent() {
-  return state.expenses.reduce((sum, e) => {
-    return sum + e.splits.reduce((s, sp) => s + Number(sp.amount), 0);
-  }, 0);
+  return state.expenses.reduce((s,e) => s + e.splits.reduce((ss,sp) => ss + Number(sp.amount), 0), 0);
 }
-
 function getRecentEntries(n) {
-  const expenses = state.expenses.map(e => ({ ...e, _type: 'expense' }));
-  const collections = state.collections.map(c => ({ ...c, _type: 'collection' }));
-  return [...expenses, ...collections]
-    .sort((a, b) => (b.date > a.date ? 1 : -1))
-    .slice(0, n);
+  return [
+    ...state.expenses.map(e => ({...e, _type:'expense'})),
+    ...state.collections.map(c => ({...c, _type:'collection'})),
+  ].sort((a,b) => b.date > a.date ? 1 : -1).slice(0, n);
 }
 
-/* ── MEMBERS ───────────────────────────────────────────── */
-function renderMembers() {
-  const el = document.getElementById('members-list');
-  if (state.members.length === 0) {
-    el.innerHTML = '<div class="empty-state">No members yet — add roommates!</div>';
+/* ── MEMBER GROUPS ────────────────────────────────────── */
+function getSehriMembers()  { return state.members.filter(m => m.inSehri); }
+function getAftariMembers() { return state.members.filter(m => m.inAftari); }
+
+function renderSehriMembers() {
+  const list = getSehriMembers();
+  const el = document.getElementById('sehri-members-list');
+  setEl('sehri-count-badge', list.length);
+  if (!el) return;
+  if (list.length === 0) {
+    el.innerHTML = `<div class="empty-state small">No Sehri members yet</div>`;
     return;
   }
-  el.innerHTML = state.members.map(m => {
-    const { contributed, owed, balance } = getMemberBalance(m.id);
-    const balClass = balance > 0 ? 'positive' : balance < 0 ? 'negative' : 'zero';
-    const balSign = balance > 0 ? '+' : '';
-    const initials = m.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0,2);
-    return `
-      <div class="member-card">
-        <div class="member-avatar">${initials}</div>
-        <div class="member-info">
-          <div class="member-name">${escHtml(m.name)}</div>
-          <div class="member-meta">Paid: ${formatPKR(contributed)} · Share: ${formatPKR(owed)}</div>
-        </div>
-        <div>
-          <div class="member-balance ${balClass}">${balSign}${formatPKR(balance)}</div>
-          <div class="member-balance-label">${balance >= 0 ? 'credit' : 'owes'}</div>
-        </div>
-        ${isManagerMode ? `<button class="member-remove" onclick="removeMember('${m.id}')" title="Remove">🗑️</button>` : ''}
-      </div>`;
-  }).join('');
+  el.innerHTML = list.map(m => memberCardHTML(m, 'sehri')).join('');
 }
 
-function getMemberBalance(memberId) {
-  // contributed = sum of collections where this member is included
+function renderAftariMembers() {
+  const list = getAftariMembers();
+  const el = document.getElementById('aftari-members-list');
+  setEl('aftari-count-badge', list.length);
+  if (!el) return;
+  if (list.length === 0) {
+    el.innerHTML = `<div class="empty-state small">No Aftari members yet</div>`;
+    return;
+  }
+  el.innerHTML = list.map(m => memberCardHTML(m, 'aftari')).join('');
+}
+
+function memberCardHTML(m, context) {
+  const { contributed, owed, balance } = getMemberBalance(m.id, context);
+  const balClass = balance > 0 ? 'positive' : balance < 0 ? 'negative' : 'zero';
+  const balSign  = balance > 0 ? '+' : '';
+  const initials = m.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0,2);
+  const avatarClass = m.inSehri && m.inAftari ? 'both-avatar' : m.inSehri ? 'sehri-avatar' : 'aftari-avatar';
+
+  const groupPills = [
+    m.inSehri ? `<span class="entry-tag tag-sehri">🌅 Sehri</span>` : '',
+    m.inAftari ? `<span class="entry-tag tag-aftari">🌙 Aftari</span>` : '',
+  ].join('');
+
+  return `
+    <div class="member-card">
+      <div class="member-avatar ${avatarClass}">${initials}</div>
+      <div class="member-info">
+        <div class="member-name">${escHtml(m.name)}</div>
+        <div class="member-groups">${groupPills}</div>
+        <div class="member-meta">Paid: ${formatPKR(contributed)} · Share: ${formatPKR(owed)}</div>
+      </div>
+      <div class="member-balance-wrap">
+        <div class="member-balance ${balClass}">${balSign}${formatPKR(balance)}</div>
+        <div class="member-balance-label">${balance >= 0 ? 'credit' : 'owes'}</div>
+      </div>
+      ${isManagerMode ? `<button class="member-remove" onclick="removeMember('${m.id}')">🗑️</button>` : ''}
+    </div>`;
+}
+
+function getMemberBalance(memberId, context) {
   const contributed = state.collections
     .filter(c => c.memberIds.includes(memberId))
-    .reduce((sum, c) => sum + Number(c.amountPerPerson), 0);
+    .reduce((s,c) => s + Number(c.amountPerPerson), 0);
 
-  // owed = sum of splits where this member is included
-  const owed = state.expenses.reduce((sum, e) => {
-    return sum + e.splits.reduce((s, sp) => {
+  const owed = state.expenses.reduce((s, e) => {
+    return s + e.splits.reduce((ss, sp) => {
       if (sp.memberIds.includes(memberId)) {
-        return s + Number(sp.amount) / sp.memberIds.length;
+        return ss + Number(sp.amount) / sp.memberIds.length;
       }
-      return s;
+      return ss;
     }, 0);
   }, 0);
 
   return { contributed, owed, balance: contributed - owed };
 }
 
-/* ── HISTORY ───────────────────────────────────────────── */
+/* ── HISTORY ──────────────────────────────────────────── */
 function renderHistory() {
-  let expenses = state.expenses;
+  let list = state.expenses.slice();
   if (currentHistoryFilter !== 'all') {
-    expenses = expenses.filter(e =>
-      e.splits.some(s => s.type === currentHistoryFilter)
-    );
+    list = list.filter(e => e.splits.some(s => s.type === currentHistoryFilter));
   }
   const el = document.getElementById('history-list');
-  if (expenses.length === 0) {
-    el.innerHTML = '<div class="empty-state">No expenses found</div>';
+  if (!el) return;
+  if (list.length === 0) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">📊</div><div class="empty-text">No expenses found</div></div>`;
     return;
   }
-  el.innerHTML = expenses
-    .sort((a, b) => (b.date > a.date ? 1 : -1))
-    .map(e => renderEntryCard({ ...e, _type: 'expense' }, true))
-    .join('');
+  el.innerHTML = list.sort((a,b)=>b.date>a.date?1:-1).map(e=>renderEntryCard({...e,_type:'expense'},true)).join('');
 }
 
 function filterHistory(type, btn) {
   currentHistoryFilter = type;
-  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.filter-pill').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   renderHistory();
 }
 
-/* ── CONTRIBUTIONS ─────────────────────────────────────── */
+/* ── CONTRIBUTIONS ────────────────────────────────────── */
 function renderContributions() {
   const el = document.getElementById('contributions-list');
+  if (!el) return;
   if (state.collections.length === 0) {
-    el.innerHTML = '<div class="empty-state">No collections yet</div>';
-    return;
+    el.innerHTML = `<div class="empty-state small">No collections yet</div>`; return;
   }
   el.innerHTML = state.collections
-    .sort((a, b) => (b.date > a.date ? 1 : -1))
-    .map(c => renderEntryCard({ ...c, _type: 'collection' }, true))
-    .join('');
+    .sort((a,b)=>b.date>a.date?1:-1)
+    .map(c=>renderEntryCard({...c,_type:'collection'},true)).join('');
 }
 
-/* ── ENTRY CARD ────────────────────────────────────────── */
+/* ── ENTRY CARD ───────────────────────────────────────── */
 function renderEntryCard(entry, showDelete) {
   if (entry._type === 'collection') {
-    const total = entry.amountPerPerson * entry.memberIds.length;
-    const names = entry.memberIds.map(id => getMemberName(id)).join(', ');
-    return `
-      <div class="entry-card">
-        <div class="entry-header">
-          <div>
-            <span class="entry-tag tag-collection">💰 Collection</span>
-            <span class="entry-title">${escHtml(entry.note || 'Money Collected')}</span>
-          </div>
-          ${showDelete && isManagerMode ? `<button class="entry-delete" onclick="deleteCollection('${entry.id}')">🗑️</button>` : ''}
-        </div>
-        <div class="entry-splits">
-          <div class="entry-split-row">
-            <span>${formatDate(entry.date)}</span>
-            <span class="entry-amount">+${formatPKR(total)}</span>
-          </div>
-          <div class="entry-split-row">
-            <span>PKR ${entry.amountPerPerson}/person × ${entry.memberIds.length}</span>
-            <span style="color:var(--text3)">${names}</span>
-          </div>
-        </div>
-      </div>`;
-  }
-
-  // expense
-  const totalAmt = entry.splits.reduce((s, sp) => s + Number(sp.amount), 0);
-  const splitsHTML = entry.splits.map(sp => {
-    const names = sp.memberIds.map(id => getMemberName(id)).join(', ');
-    const perHead = (Number(sp.amount) / sp.memberIds.length).toFixed(0);
-    return `
-      <div class="entry-split-row">
-        <span><span class="entry-tag tag-${sp.type}">${capFirst(sp.type)}</span>${names}</span>
-        <span>${formatPKR(sp.amount)} (${formatPKR(perHead)}/ea)</span>
-      </div>`;
-  }).join('');
-
-  return `
-    <div class="entry-card">
+    const total = Number(entry.amountPerPerson) * entry.memberIds.length;
+    const names = entry.memberIds.map(id=>getMemberName(id)).join(', ');
+    return `<div class="entry-card">
       <div class="entry-header">
         <div>
-          <div class="entry-title">${escHtml(entry.desc || 'Expense')}</div>
+          <div class="entry-title"><span class="entry-tag tag-collection">💰 Collection</span>${escHtml(entry.note||'Money Collected')}</div>
           <div class="entry-date">${formatDate(entry.date)}</div>
         </div>
         <div style="display:flex;align-items:center;gap:8px">
-          <span class="entry-amount">−${formatPKR(totalAmt)}</span>
-          ${showDelete && isManagerMode ? `<button class="entry-delete" onclick="deleteExpense('${entry.id}')">🗑️</button>` : ''}
+          <span class="entry-amount collection">+${formatPKR(total)}</span>
+          ${showDelete&&isManagerMode?`<button class="entry-delete" onclick="deleteCollection('${entry.id}')">🗑️</button>`:''}
         </div>
       </div>
-      <div class="entry-splits">${splitsHTML}</div>
+      <div class="entry-splits">
+        <div class="entry-split-row">
+          <span>PKR ${num(entry.amountPerPerson)}/person × ${entry.memberIds.length} members</span>
+          <span style="color:var(--text3);font-size:11px">${names}</span>
+        </div>
+      </div>
     </div>`;
+  }
+
+  const totalAmt = entry.splits.reduce((s,sp)=>s+Number(sp.amount),0);
+  const splitsHTML = entry.splits.map(sp => {
+    const memberNames = sp.memberIds.map(id=>getMemberName(id)).join(', ');
+    const perHead = (Number(sp.amount)/sp.memberIds.length).toFixed(0);
+    return `<div class="entry-split-row">
+      <span><span class="entry-tag tag-${sp.type}">${mealLabel(sp.type)}</span>${memberNames}</span>
+      <span>${formatPKR(sp.amount)} <span style="color:var(--text3)">(${formatPKR(perHead)}/ea)</span></span>
+    </div>`;
+  }).join('');
+
+  return `<div class="entry-card">
+    <div class="entry-header">
+      <div>
+        <div class="entry-title">${escHtml(entry.desc||'Expense')}</div>
+        <div class="entry-date">${formatDate(entry.date)}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="entry-amount expense">−${formatPKR(totalAmt)}</span>
+        ${showDelete&&isManagerMode?`<button class="entry-delete" onclick="deleteExpense('${entry.id}')">🗑️</button>`:''}
+      </div>
+    </div>
+    <div class="entry-splits">${splitsHTML}</div>
+  </div>`;
 }
 
-/* ── ADD EXPENSE MODAL ─────────────────────────────────── */
+/* ── ADD EXPENSE MODAL ────────────────────────────────── */
 let activeSplitRows = [];
 
 function openExpenseModal() {
-  splitRowCount = 0;
-  activeSplitRows = [];
-  const container = document.getElementById('expense-splits-container');
-  container.innerHTML = '';
-  addSplitRow();
-  setTodayAsDefault();
+  splitRowCount = 0; activeSplitRows = [];
+  document.getElementById('expense-splits-container').innerHTML = '';
   document.getElementById('exp-desc').value = '';
+  setTodayDefault();
+  addSplitRow();
   document.getElementById('expense-modal').classList.remove('hidden');
 }
-
-function closeExpenseModal() {
-  document.getElementById('expense-modal').classList.add('hidden');
-}
+function closeExpenseModal() { document.getElementById('expense-modal').classList.add('hidden'); }
 
 function addSplitRow() {
   splitRowCount++;
   const rowId = 'split-' + splitRowCount;
   activeSplitRows.push(rowId);
 
-  const container = document.getElementById('expense-splits-container');
-  const memberCheckboxes = state.members.map(m => `
-    <label class="check-item" id="${rowId}-chk-${m.id}" onclick="toggleCheckItem('${rowId}-chk-${m.id}', '${m.id}', '${rowId}')">
-      <input type="checkbox" value="${m.id}" class="split-checkbox-${rowId}" />
+  // Default members: Sehri group (first split) or all
+  const defaultMembers = splitRowCount === 1 ? getSehriMembers() : state.members;
+
+  const checkboxes = state.members.map(m => {
+    const checked = defaultMembers.some(dm => dm.id === m.id);
+    return `<label class="check-item ${checked?'checked':''}" id="${rowId}-chk-${m.id}"
+      onclick="toggleCheckItem('${rowId}-chk-${m.id}','${m.id}','${rowId}')">
+      <input type="checkbox" value="${m.id}" ${checked?'checked':''} />
       <span class="check-box"></span>
       <span class="check-name">${escHtml(m.name)}</span>
-    </label>`).join('');
+    </label>`;
+  }).join('');
 
   const div = document.createElement('div');
-  div.className = 'split-row-card';
-  div.id = rowId;
+  div.className = 'split-row-card'; div.id = rowId;
   div.innerHTML = `
     <div class="split-row-header">
       <span class="split-row-title">Split ${splitRowCount}</span>
-      ${splitRowCount > 1 ? `<button class="split-remove-btn" onclick="removeSplitRow('${rowId}')">×</button>` : ''}
+      ${splitRowCount>1?`<button class="split-remove-btn" onclick="removeSplitRow('${rowId}')">×</button>`:''}
     </div>
     <div class="split-type-row">
-      <button class="type-pill selected" data-row="${rowId}" data-type="sehri" onclick="selectType(this, '${rowId}')">🌅 Sehri</button>
-      <button class="type-pill" data-row="${rowId}" data-type="aftari" onclick="selectType(this, '${rowId}')">🌙 Aftari</button>
-      <button class="type-pill" data-row="${rowId}" data-type="other" onclick="selectType(this, '${rowId}')">📦 Other</button>
+      <button class="type-pill sehri-pill selected" onclick="selectType(this,'${rowId}','sehri')">🌅 Sehri</button>
+      <button class="type-pill aftari-pill" onclick="selectType(this,'${rowId}','aftari')">🌙 Aftari</button>
+      <button class="type-pill other-pill" onclick="selectType(this,'${rowId}','other')">📦 Other</button>
     </div>
-    <div class="split-amount-row">
-      <input type="number" class="text-input split-amount-input" id="${rowId}-amount" placeholder="Amount (PKR)" />
-    </div>
-    <div class="split-members-label" style="margin-top:10px">Split among:</div>
-    ${state.members.length > 0 ? `<div class="checkbox-grid">${memberCheckboxes}</div>` : '<p style="font-size:12px;color:var(--text3)">Add members first</p>'}
+    <input type="number" class="text-input" id="${rowId}-amount" placeholder="Amount (PKR)" style="margin-bottom:4px" />
+    <div class="split-members-label">Split among:</div>
+    ${state.members.length>0?`<div class="checkbox-grid">${checkboxes}</div>`:'<p style="font-size:12px;color:var(--text3);margin-top:4px">Add members first in the Members tab</p>'}
   `;
-  container.appendChild(div);
-
-  // Select all by default
-  state.members.forEach(m => {
-    const el = document.getElementById(`${rowId}-chk-${m.id}`);
-    if (el) el.classList.add('checked');
-    const cb = el?.querySelector('input[type=checkbox]');
-    if (cb) cb.checked = true;
-  });
+  document.getElementById('expense-splits-container').appendChild(div);
 }
 
 function removeSplitRow(rowId) {
   document.getElementById(rowId)?.remove();
-  activeSplitRows = activeSplitRows.filter(r => r !== rowId);
+  activeSplitRows = activeSplitRows.filter(r=>r!==rowId);
 }
 
-function selectType(btn, rowId) {
+function selectType(btn, rowId, type) {
   const row = document.getElementById(rowId);
-  row.querySelectorAll('.type-pill').forEach(b => b.classList.remove('selected'));
+  row.querySelectorAll('.type-pill').forEach(b=>b.classList.remove('selected'));
   btn.classList.add('selected');
+
+  // Auto-select the right group members
+  const groupMembers = type==='sehri' ? getSehriMembers()
+                     : type==='aftari' ? getAftariMembers()
+                     : state.members;
+
+  state.members.forEach(m => {
+    const label = document.getElementById(`${rowId}-chk-${m.id}`);
+    const cb = label?.querySelector('input[type=checkbox]');
+    if (!label || !cb) return;
+    const shouldCheck = groupMembers.some(gm=>gm.id===m.id);
+    label.classList.toggle('checked', shouldCheck);
+    cb.checked = shouldCheck;
+  });
 }
 
 function toggleCheckItem(labelId, memberId, rowId) {
   const label = document.getElementById(labelId);
-  const cb = label.querySelector('input[type=checkbox]');
+  const cb = label?.querySelector('input[type=checkbox]');
+  if (!label||!cb) return;
   label.classList.toggle('checked');
   cb.checked = !cb.checked;
 }
@@ -401,135 +442,143 @@ function toggleCheckItem(labelId, memberId, rowId) {
 function submitExpense() {
   const date = document.getElementById('exp-date').value;
   const desc = document.getElementById('exp-desc').value.trim();
-  if (!date) { alert('Please select a date'); return; }
+  if (!date) { toast('Please select a date','error'); return; }
 
   const splits = [];
   for (const rowId of activeSplitRows) {
     const row = document.getElementById(rowId);
     if (!row) continue;
-    const amount = parseFloat(document.getElementById(`${rowId}-amount`).value);
-    if (!amount || amount <= 0) { alert('Please enter a valid amount for each split'); return; }
-    const selectedType = row.querySelector('.type-pill.selected')?.dataset.type || 'other';
+    const amount = parseFloat(document.getElementById(`${rowId}-amount`)?.value);
+    if (!amount||amount<=0) { toast('Enter a valid amount for each split','error'); return; }
+    const type = row.querySelector('.type-pill.selected')?.dataset?.type
+               || (row.querySelector('.type-pill.selected')?.classList.contains('sehri-pill') ? 'sehri'
+                 : row.querySelector('.type-pill.selected')?.classList.contains('aftari-pill') ? 'aftari' : 'other');
+
+    // Determine type from button text/class
+    let selectedType = 'sehri';
+    const selBtn = row.querySelector('.type-pill.selected');
+    if (selBtn?.classList.contains('aftari-pill')) selectedType = 'aftari';
+    else if (selBtn?.classList.contains('other-pill')) selectedType = 'other';
+
     const memberIds = [];
-    row.querySelectorAll(`input[type=checkbox]`).forEach(cb => {
-      if (cb.checked) memberIds.push(cb.value);
-    });
-    if (memberIds.length === 0) { alert('Select at least one member for each split'); return; }
+    row.querySelectorAll('input[type=checkbox]').forEach(cb=>{if(cb.checked)memberIds.push(cb.value);});
+    if (memberIds.length===0) { toast('Select at least one member for each split','error'); return; }
     splits.push({ type: selectedType, amount, memberIds });
   }
+  if (splits.length===0) { toast('Add at least one split','error'); return; }
 
-  if (splits.length === 0) { alert('Add at least one split'); return; }
-
-  const expense = {
-    id: 'exp-' + Date.now(),
-    date,
-    desc: desc || formatDate(date),
-    splits,
-  };
-
+  const expense = { id: 'exp-'+Date.now(), date, desc: desc||formatDate(date), splits };
   state.expenses.unshift(expense);
-  saveToLocalStorage();
-  renderAll();
+  saveToLocalStorage(); renderAll();
   fbSet('expenses', expense.id, expense);
   closeExpenseModal();
+  toast('Expense saved!','success');
 }
 
-/* ── DELETE ────────────────────────────────────────────── */
+/* ── DELETE ───────────────────────────────────────────── */
 function deleteExpense(id) {
   if (!confirm('Delete this expense?')) return;
-  state.expenses = state.expenses.filter(e => e.id !== id);
-  saveToLocalStorage();
-  renderAll();
+  state.expenses = state.expenses.filter(e=>e.id!==id);
+  saveToLocalStorage(); renderAll();
   fbDelete('expenses', id);
+  toast('Expense deleted','info');
 }
-
 function deleteCollection(id) {
   if (!confirm('Delete this collection?')) return;
-  state.collections = state.collections.filter(c => c.id !== id);
-  saveToLocalStorage();
-  renderAll();
+  state.collections = state.collections.filter(c=>c.id!==id);
+  saveToLocalStorage(); renderAll();
   fbDelete('collections', id);
+  toast('Collection deleted','info');
 }
 
-/* ── COLLECT MONEY MODAL ───────────────────────────────── */
+/* ── COLLECT MODAL ────────────────────────────────────── */
 function openCollectModal() {
   const el = document.getElementById('collect-member-checkboxes');
-  el.innerHTML = state.members.map(m => `
-    <label class="check-item checked" id="col-chk-${m.id}" onclick="toggleCheckItem('col-chk-${m.id}','${m.id}','collect')">
-      <input type="checkbox" value="${m.id}" class="collect-checkbox" checked />
+  el.innerHTML = state.members.map(m=>`
+    <label class="check-item checked" id="col-chk-${m.id}"
+      onclick="toggleCheckItem('col-chk-${m.id}','${m.id}','collect')">
+      <input type="checkbox" value="${m.id}" checked />
       <span class="check-box"></span>
       <span class="check-name">${escHtml(m.name)}</span>
     </label>`).join('');
-  setTodayAsDefault();
   document.getElementById('collect-amount').value = '';
   document.getElementById('collect-note').value = '';
+  setTodayDefault();
   document.getElementById('collect-modal').classList.remove('hidden');
 }
-
 function closeCollectModal() { document.getElementById('collect-modal').classList.add('hidden'); }
 
 function submitCollection() {
-  const date = document.getElementById('collect-date').value;
+  const date   = document.getElementById('collect-date').value;
   const amount = parseFloat(document.getElementById('collect-amount').value);
-  const note = document.getElementById('collect-note').value.trim();
-
-  if (!date || !amount || amount <= 0) {
-    alert('Please fill in the date and amount'); return;
-  }
+  const note   = document.getElementById('collect-note').value.trim();
+  if (!date||!amount||amount<=0) { toast('Fill in date and amount','error'); return; }
 
   const memberIds = [];
-  document.querySelectorAll('.collect-checkbox').forEach(cb => {
-    if (cb.checked) memberIds.push(cb.value);
-  });
-  if (memberIds.length === 0) { alert('Select at least one member'); return; }
+  document.querySelectorAll('.collect-checkbox, #collect-member-checkboxes input[type=checkbox]')
+    .forEach(cb=>{ if(cb.checked) memberIds.push(cb.value); });
+  if (memberIds.length===0) { toast('Select at least one member','error'); return; }
 
-  const collection = {
-    id: 'col-' + Date.now(),
-    date,
-    amountPerPerson: amount,
-    memberIds,
-    note,
-  };
-
-  state.collections.unshift(collection);
-  saveToLocalStorage();
-  renderAll();
-  fbSet('collections', collection.id, collection);
+  const col = { id:'col-'+Date.now(), date, amountPerPerson: amount, memberIds, note };
+  state.collections.unshift(col);
+  saveToLocalStorage(); renderAll();
+  fbSet('collections', col.id, col);
   closeCollectModal();
+  toast(`PKR ${num(amount)} collected from ${memberIds.length} members!`, 'success');
 }
 
-/* ── ADD MEMBER ────────────────────────────────────────── */
-function openAddMemberModal() {
+/* ── ADD MEMBER MODAL ─────────────────────────────────── */
+function openAddMemberModal(defaultGroup) {
   document.getElementById('new-member-name').value = '';
+  document.getElementById('assign-error').classList.add('hidden');
+  // Set defaults
+  assignSehri = defaultGroup === 'sehri' || defaultGroup === 'both';
+  assignAftari = defaultGroup === 'aftari' || defaultGroup === 'both';
+  if (!defaultGroup) { assignSehri = true; assignAftari = false; }
+  updateGroupAssignUI();
   document.getElementById('add-member-modal').classList.remove('hidden');
-  setTimeout(() => document.getElementById('new-member-name').focus(), 100);
+  setTimeout(()=>document.getElementById('new-member-name').focus(), 150);
 }
-
 function closeAddMemberModal() { document.getElementById('add-member-modal').classList.add('hidden'); }
+
+function toggleGroupAssign(group) {
+  if (group==='sehri') assignSehri = !assignSehri;
+  else assignAftari = !assignAftari;
+  updateGroupAssignUI();
+}
+function updateGroupAssignUI() {
+  document.getElementById('assign-sehri')?.classList.toggle('selected', assignSehri);
+  document.getElementById('assign-aftari')?.classList.toggle('selected', assignAftari);
+}
 
 function submitAddMember() {
   const name = document.getElementById('new-member-name').value.trim();
-  if (!name) { alert('Please enter a name'); return; }
-  if (state.members.some(m => m.name.toLowerCase() === name.toLowerCase())) {
-    alert('Member already exists'); return;
+  if (!name) { toast('Please enter a name','error'); return; }
+  if (!assignSehri && !assignAftari) {
+    document.getElementById('assign-error').classList.remove('hidden'); return;
   }
-  const member = { id: 'mbr-' + Date.now(), name };
+  if (state.members.some(m=>m.name.toLowerCase()===name.toLowerCase())) {
+    toast('Member already exists','error'); return;
+  }
+  const member = { id:'mbr-'+Date.now(), name, inSehri: assignSehri, inAftari: assignAftari };
   state.members.push(member);
-  saveToLocalStorage();
-  renderAll();
+  saveToLocalStorage(); renderAll();
   fbSet('members', member.id, member);
   closeAddMemberModal();
+  const groups = [assignSehri&&'Sehri', assignAftari&&'Aftari'].filter(Boolean).join(' & ');
+  toast(`${name} added to ${groups} group!`, 'success');
 }
 
 function removeMember(id) {
-  if (!confirm('Remove this member? Their expense shares will remain in history.')) return;
-  state.members = state.members.filter(m => m.id !== id);
-  saveToLocalStorage();
-  renderAll();
+  const m = state.members.find(m=>m.id===id);
+  if (!confirm(`Remove ${m?.name||'member'}? Their expense shares remain in history.`)) return;
+  state.members = state.members.filter(m=>m.id!==id);
+  saveToLocalStorage(); renderAll();
   fbDelete('members', id);
+  toast('Member removed','info');
 }
 
-/* ── PIN SYSTEM ────────────────────────────────────────── */
+/* ── PIN SYSTEM ───────────────────────────────────────── */
 function requireManager(action) {
   if (isManagerMode) { action(); return; }
   pendingAction = action;
@@ -540,184 +589,139 @@ function requireManager(action) {
 }
 
 function pinInput(digit) {
-  if (pinBuffer.length >= 4) return;
+  if (pinBuffer.length>=4) return;
   pinBuffer += digit;
   updatePinDots();
-  if (pinBuffer.length === 4) checkPin();
+  if (pinBuffer.length===4) checkPin();
 }
-
 function pinClear() {
-  pinBuffer = pinBuffer.slice(0, -1);
+  pinBuffer = pinBuffer.slice(0,-1);
   updatePinDots();
 }
-
 function updatePinDots() {
-  const dots = document.querySelectorAll('#pin-dots span');
-  dots.forEach((d, i) => {
-    d.classList.toggle('filled', i < pinBuffer.length);
-  });
+  document.querySelectorAll('#pin-dots span').forEach((d,i)=>d.classList.toggle('filled',i<pinBuffer.length));
 }
-
 function checkPin() {
-  const savedPin = localStorage.getItem(PIN_KEY) || '1234';
-  if (pinBuffer === savedPin) {
+  const saved = localStorage.getItem(PIN_KEY)||'1234';
+  if (pinBuffer===saved) {
     isManagerMode = true;
     closePinOverlay();
     renderAll();
     if (pendingAction) { pendingAction(); pendingAction = null; }
+    toast('Manager mode ON','success');
   } else {
     document.getElementById('pin-error').classList.remove('hidden');
-    pinBuffer = '';
-    updatePinDots();
-    // Shake animation
+    pinBuffer = ''; updatePinDots();
     const card = document.querySelector('.pin-card');
-    card.style.animation = 'none';
-    card.offsetHeight;
-    card.style.animation = 'shake 0.4s ease';
+    if (card) { card.style.animation='none'; card.offsetHeight; card.style.animation='shake 0.4s ease'; }
   }
 }
-
 function closePinOverlay() {
   document.getElementById('pin-overlay').classList.add('hidden');
-  pinBuffer = '';
-  updatePinDots();
+  pinBuffer = ''; updatePinDots();
 }
-
 function toggleManagerMode() {
   if (isManagerMode) {
-    isManagerMode = false;
-    pendingAction = null;
-    renderAll();
-  } else {
-    requireManager(() => {});
-  }
+    isManagerMode = false; pendingAction = null;
+    renderAll(); toast('Manager mode OFF','info');
+  } else requireManager(()=>{});
 }
 
 function updateManagerUI() {
   const icon = document.getElementById('manager-icon');
+  const label = document.getElementById('manager-label');
   const badge = document.getElementById('manager-badge');
-  if (icon) icon.textContent = isManagerMode ? '🔓' : '🔒';
-  if (badge) badge.classList.toggle('active', isManagerMode);
-
   const statusEl = document.getElementById('manager-status-text');
-  if (statusEl) statusEl.textContent = isManagerMode ? '✅ Active — you can edit data' : 'Not active';
+  const toggleSetting = document.getElementById('manager-toggle-setting');
+  const actions = document.getElementById('quick-actions');
 
-  const lockLabel = document.getElementById('actions-lock-label');
-  if (lockLabel) lockLabel.style.display = isManagerMode ? 'none' : '';
+  if (icon)   icon.textContent = isManagerMode ? '🔓' : '🔒';
+  if (label)  label.textContent = isManagerMode ? 'Manager' : 'View';
+  if (badge)  badge.classList.toggle('active', isManagerMode);
+  if (statusEl) statusEl.textContent = isManagerMode ? '✅ Active — you can edit data' : 'Not active';
+  if (toggleSetting) { toggleSetting.textContent = isManagerMode ? 'ON' : 'OFF'; toggleSetting.classList.toggle('on', isManagerMode); }
+  if (actions) actions.classList.toggle('hidden', !isManagerMode);
 }
 
-/* ── PIN SETTINGS ──────────────────────────────────────── */
+/* ── PIN SETTINGS ─────────────────────────────────────── */
 function openSetPinModal() {
   document.getElementById('new-pin-input').value = '';
   document.getElementById('confirm-pin-input').value = '';
   document.getElementById('set-pin-error').classList.add('hidden');
   document.getElementById('set-pin-modal').classList.remove('hidden');
 }
-
 function closeSetPinModal() { document.getElementById('set-pin-modal').classList.add('hidden'); }
-
 function saveNewPin() {
   const p1 = document.getElementById('new-pin-input').value.trim();
   const p2 = document.getElementById('confirm-pin-input').value.trim();
-  if (p1.length < 4 || p1 !== p2) {
-    document.getElementById('set-pin-error').classList.remove('hidden'); return;
-  }
+  if (p1.length<4||p1!==p2) { document.getElementById('set-pin-error').classList.remove('hidden'); return; }
   localStorage.setItem(PIN_KEY, p1);
   closeSetPinModal();
-  alert('✅ PIN saved successfully!');
+  toast('PIN updated successfully!','success');
 }
 
-/* ── FIREBASE CONFIG ───────────────────────────────────── */
+/* ── FIREBASE SETTINGS ────────────────────────────────── */
 function saveFirebaseConfig() {
   const raw = document.getElementById('firebase-config-input').value.trim();
   try {
     const config = JSON.parse(raw);
     if (!config.apiKey) throw new Error('Missing apiKey');
-    localStorage.setItem('sehri_fb_config', raw);
     initFirebase(config);
+    toast('Firebase config updated!','success');
   } catch(e) {
-    setFirebaseStatus('❌ Invalid JSON config. Please check and try again.', 'err');
+    toast('Invalid config JSON: ' + e.message, 'error');
   }
 }
 
-/* ── EXPORT ────────────────────────────────────────────── */
+/* ── EXPORT ───────────────────────────────────────────── */
 function exportData() {
-  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+  const blob = new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `sehri-tracker-${new Date().toISOString().split('T')[0]}.json`;
+  a.download = `sehri-aftari-${new Date().toISOString().split('T')[0]}.json`;
   a.click();
   URL.revokeObjectURL(url);
+  toast('Data exported!','success');
 }
 
 async function clearAllData() {
-  if (!confirm('⚠️ This will permanently delete ALL data. Are you sure?')) return;
-  if (!confirm('Last warning — really delete everything?')) return;
-
-  // Delete from Firebase first (all 3 collections)
+  if (!confirm('⚠️ Delete ALL data permanently?')) return;
+  if (!confirm('Final warning — this cannot be undone!')) return;
   if (db) {
-    try {
-      const collections = ['members', 'expenses', 'collections'];
-      for (const col of collections) {
-        const snap = await db.collection(col).get();
-        const deletes = snap.docs.map(d => db.collection(col).doc(d.id).delete());
-        await Promise.all(deletes);
-      }
-    } catch(e) {
-      console.error('Firebase clear error', e);
+    for (const col of ['members','expenses','collections']) {
+      const snap = await db.collection(col).get();
+      await Promise.all(snap.docs.map(d=>db.collection(col).doc(d.id).delete()));
     }
   }
-
-  // Clear local state
-  state = { members: [], expenses: [], collections: [] };
-  saveToLocalStorage();
-  renderAll();
-  alert('✅ All data cleared!');
+  state = { members:[], expenses:[], collections:[] };
+  saveToLocalStorage(); renderAll();
+  toast('All data cleared','info');
 }
 
-/* ── TAB NAVIGATION ────────────────────────────────────── */
+/* ── TAB NAV ──────────────────────────────────────────── */
 function switchTab(tabName, btn) {
-  document.querySelectorAll('.tab-section').forEach(s => s.classList.remove('active'));
-  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('tab-' + tabName).classList.add('active');
-  btn.classList.add('active');
+  document.querySelectorAll('.tab-section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+tabName)?.classList.add('active');
+  if (btn) btn.classList.add('active');
 }
 
-/* ── HELPERS ───────────────────────────────────────────── */
-function getMemberName(id) {
-  return state.members.find(m => m.id === id)?.name || 'Unknown';
+/* ── HELPERS ──────────────────────────────────────────── */
+function getMemberName(id) { return state.members.find(m=>m.id===id)?.name||'Unknown'; }
+function num(n) { return Math.round(Number(n)).toLocaleString('en-PK'); }
+function formatPKR(n) { return 'PKR '+num(n); }
+function formatDate(ds) {
+  if (!ds) return '';
+  return new Date(ds+'T00:00:00').toLocaleDateString('en-PK',{day:'numeric',month:'short',year:'numeric'});
 }
-
-function formatPKR(n) {
-  const num = parseFloat(n) || 0;
-  return 'PKR ' + Math.round(num).toLocaleString('en-PK');
+function mealLabel(type) {
+  if (type==='sehri') return '🌅 Sehri';
+  if (type==='aftari') return '🌙 Aftari';
+  return '📦 Other';
 }
-
-function formatDate(dateStr) {
-  if (!dateStr) return '';
-  const d = new Date(dateStr + 'T00:00:00');
-  return d.toLocaleDateString('en-PK', { day: 'numeric', month: 'short', year: 'numeric' });
+function capFirst(s) { return s.charAt(0).toUpperCase()+s.slice(1); }
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
-
-function capFirst(str) { return str.charAt(0).toUpperCase() + str.slice(1); }
-
-function escHtml(str) {
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
-// Add shake keyframe dynamically
-const shakeStyle = document.createElement('style');
-shakeStyle.textContent = `
-  @keyframes shake {
-    0%,100%{transform:translateX(0)}
-    20%    {transform:translateX(-8px)}
-    40%    {transform:translateX(8px)}
-    60%    {transform:translateX(-5px)}
-    80%    {transform:translateX(5px)}
-  }`;
-document.head.appendChild(shakeStyle);
+function setEl(id, val) { const e=document.getElementById(id); if(e) e.textContent=val; }
