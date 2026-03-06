@@ -100,24 +100,14 @@ function initFirebase(config) {
     }
     db = firebase.firestore(app);
 
-    let firstSnap = true;
-    const onFirstSnap = () => {
-      if (firstSnap) {
-        firstSnap = false;
-        setFbStatus('✅ Connected', 'ok');
-        hideLoadingScreen();
-      }
-    };
     const onSnapErr = (err) => {
       console.error('Firestore error:', err);
       setFbStatus('❌ ' + err.message, 'err');
-      hideLoadingScreen();
     };
 
     db.collection('members').onSnapshot(snap => {
       state.members = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       saveToLocalStorage(); renderAll();
-      onFirstSnap();
     }, onSnapErr);
 
     db.collection('expenses').orderBy('date','desc').onSnapshot(snap => {
@@ -130,9 +120,14 @@ function initFirebase(config) {
       saveToLocalStorage(); renderAll();
     }, onSnapErr);
 
+    // Mark as connected immediately — listeners are live
+    setFbStatus('✅ Connected', 'ok');
+    hideLoadingScreen();
+
   } catch(e) {
     console.error('Firebase init error:', e);
     setFbStatus('❌ ' + e.message, 'err');
+
     hideLoadingScreen();
   }
 }
