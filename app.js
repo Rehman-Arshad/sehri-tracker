@@ -82,33 +82,49 @@ function loadFromLocalStorage() {
 /* ── FIREBASE ─────────────────────────────────────────── */
 function initFirebase(config) {
   try {
-    try { firebase.app('sehri').delete(); } catch(_) {}
-    const app = firebase.initializeApp(config, 'sehri');
+    // Safe init: reuse existing app or create new one
+    let app;
+    try {
+      app = firebase.app('sehri');
+    } catch(_) {
+      app = firebase.initializeApp(config, 'sehri');
+    }
     db = firebase.firestore(app);
+
+    let firstSnap = true;
+    const onFirstSnap = () => {
+      if (firstSnap) {
+        firstSnap = false;
+        setFbStatus('✅ Connected', 'ok');
+        hideLoadingScreen();
+      }
+    };
+    const onSnapErr = (err) => {
+      console.error('Firestore error:', err);
+      setFbStatus('❌ ' + err.message, 'err');
+      hideLoadingScreen();
+    };
 
     db.collection('members').onSnapshot(snap => {
       state.members = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       saveToLocalStorage(); renderAll();
-    }, err => {
-      setFbStatus('⚠️ Sync error: ' + err.message, 'err');
-    });
+      onFirstSnap();
+    }, onSnapErr);
 
     db.collection('expenses').orderBy('date','desc').onSnapshot(snap => {
       state.expenses = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       saveToLocalStorage(); renderAll();
-    });
+    }, onSnapErr);
 
     db.collection('collections').orderBy('date','desc').onSnapshot(snap => {
       state.collections = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       saveToLocalStorage(); renderAll();
-    });
+    }, onSnapErr);
 
-    setFbStatus('✅ Connected', 'ok');
-    hideLoadingScreen(); // connected early — hide loading now
   } catch(e) {
     console.error('Firebase init error:', e);
-    setFbStatus('❌ Firebase error: ' + e.message, 'err');
-    hideLoadingScreen(); // show gate even on failure
+    setFbStatus('❌ ' + e.message, 'err');
+    hideLoadingScreen();
   }
 }
 
