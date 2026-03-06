@@ -781,20 +781,45 @@ function updateManagerUI() {
 }
 
 /* ── PIN SETTINGS ─────────────────────────────────────── */
-function openSetPinModal() {
+let currentSetPinMode = 'admin'; // 'admin' or 'team'
+
+function openSetAdminPinModal() {
+  currentSetPinMode = 'admin';
+  document.getElementById('set-pin-title').textContent = '🔐 Change Admin PIN';
+  document.getElementById('set-pin-desc').textContent = 'Set a new 4-digit Admin PIN';
+  openSetPinModalBase();
+}
+
+function openSetTeamPinModal() {
+  currentSetPinMode = 'team';
+  document.getElementById('set-pin-title').textContent = '👥 Change Team PIN';
+  document.getElementById('set-pin-desc').textContent = 'Set a new 4-digit Team PIN';
+  openSetPinModalBase();
+}
+
+function openSetPinModalBase() {
   document.getElementById('new-pin-input').value = '';
   document.getElementById('confirm-pin-input').value = '';
   document.getElementById('set-pin-error').classList.add('hidden');
   document.getElementById('set-pin-modal').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('new-pin-input').focus(), 150);
 }
+
 function closeSetPinModal() { document.getElementById('set-pin-modal').classList.add('hidden'); }
+
 function saveNewPin() {
   const p1 = document.getElementById('new-pin-input').value.trim();
   const p2 = document.getElementById('confirm-pin-input').value.trim();
-  if (p1.length<4||p1!==p2) { document.getElementById('set-pin-error').classList.remove('hidden'); return; }
-  localStorage.setItem(PIN_KEY, p1);
+  if (p1.length < 4 || p1 !== p2) { document.getElementById('set-pin-error').classList.remove('hidden'); return; }
+  
+  if (currentSetPinMode === 'admin') {
+    localStorage.setItem(ADMIN_PIN_KEY, p1);
+  } else {
+    localStorage.setItem(TEAM_PIN_KEY, p1);
+  }
+  
   closeSetPinModal();
-  toast('PIN updated successfully!','success');
+  toast(`${currentSetPinMode === 'admin' ? 'Admin' : 'Team'} PIN updated!`, 'success');
 }
 
 /* ── FIREBASE SETTINGS ────────────────────────────────── */
