@@ -46,8 +46,18 @@ document.addEventListener('DOMContentLoaded', () => {
   loadFromLocalStorage();
   renderAll();
   setTodayDefault();
-  initFirebase(FIREBASE_CONFIG);  // connects in background
+  // Guaranteed: loading screen always hides within 2.5s
+  setTimeout(hideLoadingScreen, 2500);
+  initFirebase(FIREBASE_CONFIG);
 });
+
+let _loadingHidden = false;
+function hideLoadingScreen() {
+  if (_loadingHidden) return;
+  _loadingHidden = true;
+  document.getElementById('loading-screen')?.classList.add('done');
+  showAccessGate();
+}
 
 
 function setTodayDefault() {
@@ -94,8 +104,11 @@ function initFirebase(config) {
     });
 
     setFbStatus('✅ Connected', 'ok');
+    hideLoadingScreen(); // connected early — hide loading now
   } catch(e) {
+    console.error('Firebase init error:', e);
     setFbStatus('❌ Firebase error: ' + e.message, 'err');
+    hideLoadingScreen(); // show gate even on failure
   }
 }
 

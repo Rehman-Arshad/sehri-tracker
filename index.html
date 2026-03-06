@@ -10,18 +10,26 @@
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
 </head>
-<body>
-
-  <!-- ── TOAST ─────────────────────────────────────────── -->
+<body>  <!-- ── TOAST ─────────────────────────────────────────── -->
   <div id="toast-container" class="toast-container"></div>
 
-  <!-- ── ACCESS GATE ──────────────────────────────────────── -->
-  <div id="access-gate" class="access-gate">
+  <!-- ── LOADING SCREEN ────────────────────────────────── -->
+  <div id="loading-screen" class="loading-screen">
+    <div class="loading-content">
+      <div class="loading-moon">🌙</div>
+      <div class="loading-title">Sehri &amp; Aftari</div>
+      <div class="loading-sub">Expense Tracker</div>
+      <div class="loading-bar"><div class="loading-bar-fill"></div></div>
+      <div class="loading-text">Connecting to Firebase...</div>
+    </div>
+  </div>
+
+  <!-- ── ACCESS GATE ────────────────────────────────── -->
+  <div id="access-gate" class="access-gate hidden">
     <div class="access-gate-card">
       <div class="access-gate-moon">🌙</div>
       <h2 class="access-gate-title">Sehri &amp; Aftari Tracker</h2>
-      <p class="access-gate-sub">How do you want to access?</p>
-      <p class="access-gate-sync" id="access-sync-status">⏳ Connecting to Firebase...</p>
+      <p class="access-gate-sub">Choose your access level</p>
       <div class="access-options">
         <button class="access-option-btn team-option" onclick="openAccessPin('team')">
           <span class="access-opt-icon">👥</span>
@@ -35,15 +43,7 @@
           <span class="access-opt-icon">🔐</span>
           <div>
             <div class="access-opt-label">Admin</div>
-            <div class="access-opt-desc">Full access &amp; edit</div>
-          </div>
-          <span class="access-opt-arrow">›</span>
-        </button>
-        <button class="access-option-btn guest-option" onclick="enterAsGuest()">
-          <span class="access-opt-icon">👁️</span>
-          <div>
-            <div class="access-opt-label">View Summary Only</div>
-            <div class="access-opt-desc">Pool balance &amp; today's spend</div>
+            <div class="access-opt-desc">Full access — add, edit &amp; delete</div>
           </div>
           <span class="access-opt-arrow">›</span>
         </button>
