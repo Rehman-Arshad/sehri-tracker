@@ -46,11 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
   loadFromLocalStorage();
   renderAll();
   setTodayDefault();
-
-  // Always show access gate within 3s, even if Firebase is slow
-  setTimeout(hideLoadingScreen, 3000);
-
-  initFirebase(FIREBASE_CONFIG);
+  initFirebase(FIREBASE_CONFIG);  // connects in background
 });
 
 
@@ -97,30 +93,27 @@ function initFirebase(config) {
       saveToLocalStorage(); renderAll();
     });
 
-    setFbStatus('✅ Real-time sync active', 'ok');
-    hideLoadingScreen(); // Firebase connected early — hide now
+    setFbStatus('✅ Connected', 'ok');
   } catch(e) {
-    setFbStatus('❌ Firebase failed: ' + e.message, 'err');
-    hideLoadingScreen(); // Hide even on failure
+    setFbStatus('❌ Firebase error: ' + e.message, 'err');
   }
 }
 
-let _loadingHidden = false;
-function hideLoadingScreen() {
-  if (_loadingHidden) return;
-  _loadingHidden = true;
-  document.getElementById('loading-screen')?.classList.add('done');
-  showAccessGate();
-}
-
-
 
 function setFbStatus(msg, cls) {
+  // Update settings Firebase status
   ['firebase-status','firebase-status-small'].forEach(id => {
     const el = document.getElementById(id);
     if (el) { el.textContent = msg; el.className = 'firebase-status ' + cls; }
   });
+  // Update access gate sync indicator
+  const sync = document.getElementById('access-sync-status');
+  if (sync) {
+    sync.textContent = cls === 'ok' ? '✅ Firebase connected' : cls === 'err' ? '⚠️ Offline — using cached data' : '⏳ Connecting...';
+    sync.style.color = cls === 'ok' ? 'var(--green)' : cls === 'err' ? 'var(--yellow)' : 'var(--text3)';
+  }
 }
+
 
 async function fbSet(col, id, data) {
   if (db) await db.collection(col).doc(id).set(data);
