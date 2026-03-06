@@ -134,18 +134,14 @@ function initFirebase(config) {
 
 
 function setFbStatus(msg, cls) {
-  // Update settings Firebase status
   ['firebase-status','firebase-status-small'].forEach(id => {
     const el = document.getElementById(id);
     if (el) { el.textContent = msg; el.className = 'firebase-status ' + cls; }
   });
-  // Update access gate sync indicator
-  const sync = document.getElementById('access-sync-status');
-  if (sync) {
-    sync.textContent = cls === 'ok' ? '✅ Firebase connected' : cls === 'err' ? '⚠️ Offline — using cached data' : '⏳ Connecting...';
-    sync.style.color = cls === 'ok' ? 'var(--green)' : cls === 'err' ? 'var(--yellow)' : 'var(--text3)';
-  }
+  const dot = document.getElementById('firebase-status-dot');
+  if (dot) dot.textContent = cls === 'ok' ? '✅' : cls === 'err' ? '❌' : '⏳';
 }
+
 
 
 async function fbSet(col, id, data) {
