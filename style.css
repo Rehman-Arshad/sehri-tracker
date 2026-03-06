@@ -79,6 +79,11 @@ button { font-family: 'Inter', sans-serif; cursor: pointer; }
   display: block;
   filter: drop-shadow(0 0 20px rgba(124,106,255,0.6));
 }
+@keyframes moonPulse {
+  0%,100% { transform: scale(1); filter: drop-shadow(0 0 14px rgba(124,106,255,0.7)); }
+  50%      { transform: scale(1.1); filter: drop-shadow(0 0 28px rgba(0,212,170,0.8)); }
+}
+
 .loading-title {
   font-family: 'Outfit', sans-serif;
   font-size: 28px; font-weight: 900;
