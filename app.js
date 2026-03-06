@@ -46,8 +46,13 @@ document.addEventListener('DOMContentLoaded', () => {
   loadFromLocalStorage();
   renderAll();
   setTodayDefault();
+
+  // Always show access gate within 3s, even if Firebase is slow
+  setTimeout(hideLoadingScreen, 3000);
+
   initFirebase(FIREBASE_CONFIG);
 });
+
 
 function setTodayDefault() {
   const today = new Date().toISOString().split('T')[0];
@@ -93,20 +98,21 @@ function initFirebase(config) {
     });
 
     setFbStatus('✅ Real-time sync active', 'ok');
-    hideLoadingScreen();
+    hideLoadingScreen(); // Firebase connected early — hide now
   } catch(e) {
     setFbStatus('❌ Firebase failed: ' + e.message, 'err');
-    hideLoadingScreen();
+    hideLoadingScreen(); // Hide even on failure
   }
 }
 
+let _loadingHidden = false;
 function hideLoadingScreen() {
-  setTimeout(() => {
-    document.getElementById('loading-screen')?.classList.add('done');
-    // Show access gate after loading
-    showAccessGate();
-  }, 1200);
+  if (_loadingHidden) return;
+  _loadingHidden = true;
+  document.getElementById('loading-screen')?.classList.add('done');
+  showAccessGate();
 }
+
 
 
 function setFbStatus(msg, cls) {
