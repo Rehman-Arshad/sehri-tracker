@@ -23,6 +23,42 @@ function hideLoadingScreen() {
   if (ag) ag.classList.remove('hidden');
 }
 
+// 5 Minute Session Timeout
+const SESSION_DURATION = 5 * 60 * 1000;
+
+function saveSession() {
+  if (accessLevel === ACCESS.GUEST) {
+    localStorage.removeItem('auth_session');
+    return;
+  }
+  localStorage.setItem('auth_session', JSON.stringify({
+    level: accessLevel,
+    expires: Date.now() + SESSION_DURATION
+  }));
+}
+
+function restoreSession() {
+  try {
+    const raw = localStorage.getItem('auth_session');
+    if (!raw) return;
+    const session = JSON.parse(raw);
+    if (session.expires > Date.now()) {
+      accessLevel = session.level;
+      saveSession(); // Refresh the 5-minute timer on load
+      hideAccessGate();
+      applyAccessLevel();
+      // Only toast if they are actually a logged in user
+      if (accessLevel >= ACCESS.TEAM) {
+        toast('Session restored', 'success', 2000);
+      }
+    } else {
+      localStorage.removeItem('auth_session');
+    }
+  } catch(e) {
+    localStorage.removeItem('auth_session');
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   // Timeout FIRST — screen always hides after 2s no matter what
   setTimeout(hideLoadingScreen, 2000);
@@ -46,7 +82,8 @@ document.addEventListener('DOMContentLoaded', () => {
     loadFromLocalStorage();
     renderAll();
     setTodayDefault();
-  } catch(e) {
+    restoreSession();
+  } catch (e) {
     console.error('Render error:', e);
   }
 
@@ -96,6 +133,7 @@ function toast(msg, type = 'info', duration = 3000) {
 
 function renderAll() {
   if (typeof renderDashboard === 'function') renderDashboard();
+  if (typeof renderOverallMembers === 'function') renderOverallMembers();
   if (typeof renderSehriMembers === 'function') renderSehriMembers();
   if (typeof renderAftariMembers === 'function') renderAftariMembers();
   if (typeof renderHistory === 'function') renderHistory();
@@ -107,7 +145,13 @@ function renderAll() {
 function renderHistory() {
   let list = state.expenses.slice();
   if (currentHistoryFilter !== 'all') {
-    list = list.filter(e => e.splits.some(s => s.type === currentHistoryFilter));
+    list = list.filter(e => {
+      // New itemized format
+      if (e.category) return e.category === currentHistoryFilter;
+      // Legacy format
+      if (e.splits) return e.splits.some(s => (s.type || 'sehri') === currentHistoryFilter);
+      return false;
+    });
   }
   const el = document.getElementById('history-list');
   if (!el) return;
@@ -303,9 +347,22 @@ window.openEntryDetailsModal = function(id, type) {
 
   const sign = isCollection ? '+' : '−';
   const deleteAction = isCollection ? `deleteCollection('${entry.id}')` : `deleteExpense('${entry.id}')`;
-  const deleteBtn = accessLevel >= ACCESS.ADMIN 
-    ? `<button class="entry-delete" style="width:100%; justify-content:center; gap:8px; display:flex; align-items:center; padding:12px; margin-top:20px; border:1px solid rgba(255,90,122,0.2);" onclick="${deleteAction}; closeEntryDetailsModal();"><i class="ph ph-trash"></i> Delete Entry</button>` 
-    : '';
+  
+  let adminActions = '';
+  if (accessLevel >= ACCESS.ADMIN) {
+    // Only allow editing for the newly formatted expenses currently
+    const canEdit = !isCollection && !!entry.items;
+    const editBtnHTML = canEdit 
+      ? `<button style="flex:1; justify-content:center; gap:8px; display:flex; align-items:center; padding:12px; border:1px solid var(--border); border-radius:8px; background:var(--bg3); color:var(--text); font-weight:600; cursor:pointer;" onclick="closeEntryDetailsModal(); editExpense('${entry.id}');"><i class="ph ph-pencil-simple"></i> Edit</button>`
+      : '';
+      
+    adminActions = `
+      <div style="display:flex; gap:12px; margin-top:20px;">
+        ${editBtnHTML}
+        <button class="entry-delete" style="flex:1; justify-content:center; gap:8px; display:flex; align-items:center; padding:12px; border:1px solid rgba(255,90,122,0.2); border-radius:8px; background:var(--bg3); color:var(--red); font-weight:600; cursor:pointer;" onclick="${deleteAction}; closeEntryDetailsModal();"><i class="ph ph-trash"></i> Delete</button>
+      </div>
+    `;
+  }
 
   const html = `
     <div style="text-align:center; margin-bottom:20px;">
@@ -319,7 +376,7 @@ window.openEntryDetailsModal = function(id, type) {
     </div>
     
     ${detailsHTML}
-    ${deleteBtn}
+    ${adminActions}
   `;
 
   document.getElementById('entry-details-body').innerHTML = html;
@@ -365,6 +422,7 @@ function hideAccessGate() {
 
 function enterAsGuest() {
   accessLevel = ACCESS.GUEST;
+  saveSession();
   hideAccessGate();
   applyAccessLevel();
   toast('Viewing as Guest — dashboard summary only', 'info');
@@ -409,6 +467,7 @@ function requireManager(action) { requireAdmin(action); }
 function toggleManagerMode() {
   if (accessLevel >= ACCESS.ADMIN) {
     accessLevel = ACCESS.TEAM;
+    saveSession();
     applyAccessLevel();
     toast('Dropped to Team view', 'info');
   } else {
@@ -450,6 +509,7 @@ function checkPin() {
   if (granted) {
     closePinOverlay();
     hideAccessGate();
+    saveSession(); // Save the new session into local storage
     applyAccessLevel();
     const labels = { [ACCESS.TEAM]: 'Team view unlocked <i class="ph ph-users"></i>', [ACCESS.ADMIN]: 'Admin mode active <i class="ph ph-lock-key"></i>' };
     toast(labels[accessLevel] || 'Access granted', 'success');
@@ -500,8 +560,10 @@ function updateManagerUI() {
     else statusEl.innerHTML = '<i class="ph ph-eye"></i> Guest — Summary only';
   }
 
-  // Hide quick actions for non-admins
+  // Hide quick actions for non-admins (or non-teams for export)
   if (actions) actions.classList.toggle('hidden', !isAdmin);
+  const exportActions = document.getElementById('export-actions');
+  if (exportActions) exportActions.classList.toggle('hidden', !isTeam && !isAdmin);
 }
 
 /* ── PIN SETTINGS ─────────────────────────────────────── */
@@ -549,6 +611,88 @@ function saveNewPin() {
   toast(`${currentSetPinMode === 'admin' ? 'Admin' : 'Team'} PIN updated!`, 'success');
 }
 
+/* ── EXPORT DATA (EXCEL) ───────────────────────────── */
+function exportDataExcel() {
+  if (typeof XLSX === 'undefined') {
+    toast('Excel library is still loading, please wait...', 'warning');
+    return;
+  }
+
+  // 1. Prepare Summary Sheet
+  const summaryData = [
+    { Metric: 'Total Members', Value: state.members.length },
+    { Metric: 'Total Collections', Value: state.collections.length },
+    { Metric: 'Total Expenses', Value: state.expenses.length },
+    { Metric: '', Value: '' } // blank row
+  ];
+
+  state.members.forEach(m => {
+    const sehriBal = getMemberBalance(m.id, 'sehri').balance;
+    const aftariBal = getMemberBalance(m.id, 'aftari').balance;
+    const otherBal = getMemberBalance(m.id, 'other').balance;
+    
+    summaryData.push({
+      Metric: `Member Balance: ${m.name}`,
+      Value: sehriBal + aftariBal + otherBal,
+      'Sehri Balance': sehriBal,
+      'Aftari Balance': aftariBal,
+      'Other Expenses': otherBal,
+      Groups: [m.inSehri ? 'Sehri' : '', m.inAftari ? 'Aftari' : ''].filter(Boolean).join(' & ')
+    });
+  });
+
+  const wsSummary = XLSX.utils.json_to_sheet(summaryData);
+
+  // 2. Prepare Collections Sheet
+  const collData = state.collections.map(c => {
+    const membersList = c.memberIds.map(id => {
+      const mem = state.members.find(m => m.id === id);
+      return mem ? mem.name : 'Unknown';
+    }).join(', ');
+    
+    return {
+      Date: c.date,
+      Type: c.type || 'sehri',
+      'Amount Per Person': c.amountPerPerson,
+      'Total Collected': c.amountPerPerson * c.memberIds.length,
+      'Members Paid': membersList
+    };
+  });
+  const wsCollections = XLSX.utils.json_to_sheet(collData);
+
+  // 3. Prepare Expenses Sheet
+  const expData = state.expenses.map(e => {
+    let amount = 0;
+    let splitDetails = '';
+    
+    if (e.items) {
+      amount = e.totalAmount;
+      splitDetails = e.items.map(i => `${i.name} (${i.total})`).join(' | ');
+    } else if (e.splits) {
+      amount = e.splits.reduce((s, sp) => s + Number(sp.amount), 0);
+      splitDetails = e.splits.map(sp => `${sp.type || 'sehri'}: ${sp.amount}`).join(' | ');
+    }
+    
+    return {
+      Date: e.date,
+      Description: e.desc,
+      Category: e.category || 'sehri',
+      'Logged By': e.loggedByName || 'Admin',
+      'Total Amount': amount,
+      'Receipt Details': splitDetails
+    };
+  });
+  const wsExpenses = XLSX.utils.json_to_sheet(expData);
+
+  // 4. Build Workbook & Download
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, wsSummary, 'Summary');
+  XLSX.utils.book_append_sheet(wb, wsCollections, 'Collections');
+  XLSX.utils.book_append_sheet(wb, wsExpenses, 'Expenses');
+
+  XLSX.writeFile(wb, 'Ramadan_Expenses_Export.xlsx');
+  toast('Excel file generated successfully!', 'success');
+}
 /* ── FIREBASE SETTINGS ────────────────────────────────── */
 function saveFirebaseConfig() {
   const raw = document.getElementById('firebase-config-input').value.trim();

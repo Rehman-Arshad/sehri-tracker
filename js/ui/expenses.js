@@ -25,6 +25,7 @@ function setExpenseCategory(type) {
 }
 
 function openExpenseModal() {
+  _editingExpenseId = null;
   document.getElementById('exp-date').value = new Date().toISOString().split('T')[0];
   document.getElementById('exp-desc').value = '';
   
@@ -47,6 +48,7 @@ function openExpenseModal() {
 }
 
 function closeExpenseModal() {
+  _editingExpenseId = null;
   document.getElementById('expense-modal').classList.add('hidden');
 }
 
@@ -85,7 +87,71 @@ function calculateExpenseTotal() {
   return total;
 }
 
+let _editingExpenseId = null;
 let _isSubmittingExpense = false;
+
+window.editExpense = function(id) {
+  const exp = state.expenses.find(e => e.id === id);
+  if (!exp || !exp.items) return; // Only modern itemized structure supported for edit
+  
+  _editingExpenseId = id;
+  
+  document.getElementById('exp-date').value = exp.date;
+  document.getElementById('exp-desc').value = exp.desc || '';
+  
+  // Clear items
+  expenseLineItems = [];
+  document.getElementById('exp-items-container').innerHTML = '';
+  
+  // Render members checkboxes (so we have a fresh slate to check)
+  const el = document.getElementById('exp-member-checkboxes');
+  el.innerHTML = state.members.map(m=>`
+    <label class="check-item" id="exp-chk-${m.id}">
+      <input type="checkbox" value="${m.id}" onchange="handleCheckboxChange(this)" />
+      <span class="check-box"></span>
+      <span class="check-name">${escHtml(m.name)}</span>
+    </label>`).join('');
+
+  // Re-populate items
+  if (exp.items && exp.items.length > 0) {
+    exp.items.forEach(item => {
+      lineItemIds++;
+      const rowId = 'line-' + lineItemIds;
+      expenseLineItems.push(rowId);
+      
+      const div = document.createElement('div');
+      div.id = rowId;
+      div.style = "display:flex; gap:8px; align-items:center;";
+      div.innerHTML = `
+        <input type="text" class="text-input line-name" placeholder="Item (e.g. Milk)" style="flex:1; margin:0; padding:10px 14px;" value="${escHtml(item.name)}" />
+        <input type="number" class="text-input line-amount" placeholder="Rs" oninput="calculateExpenseTotal()" style="width:90px; margin:0; padding:10px 14px;" value="${item.amount}" />
+        <button onclick="removeExpenseLineItem('${rowId}')" style="background:var(--card); border:1px solid var(--border); color:var(--red); width:40px; height:40px; border-radius:10px; cursor:pointer;">✕</button>
+      `;
+      document.getElementById('exp-items-container').appendChild(div);
+    });
+  } else {
+    addExpenseLineItem();
+  }
+
+  // Set category visually
+  setExpenseCategory(exp.category || 'sehri');
+
+  // Override checkboxes manually based on original splitAmong to respect custom edits
+  if (exp.splitAmong) {
+    state.members.forEach(m => {
+      const label = document.getElementById(`exp-chk-${m.id}`);
+      const cb = label?.querySelector('input[type=checkbox]');
+      if (!label || !cb) return;
+      const shouldCheck = exp.splitAmong.includes(m.id);
+      label.classList.toggle('checked', shouldCheck);
+      cb.checked = shouldCheck;
+    });
+  }
+
+  calculateExpenseTotal();
+  document.getElementById('expense-modal').classList.remove('hidden');
+};
+
 function submitExpense() {
   if (_isSubmittingExpense) return;
   
@@ -121,8 +187,9 @@ function submitExpense() {
   }
   _isSubmittingExpense = true;
 
+  const expId = _editingExpenseId || ('exp-' + Date.now());
   const exp = {
-    id: 'exp-' + Date.now(),
+    id: expId,
     date,
     desc,
     category: activeExpenseCategory,
@@ -132,7 +199,15 @@ function submitExpense() {
   };
 
   try {
-    state.expenses.unshift(exp);
+    if (_editingExpenseId) {
+      const idx = state.expenses.findIndex(e => e.id === _editingExpenseId);
+      if (idx !== -1) state.expenses[idx] = exp;
+      else state.expenses.unshift(exp);
+      _editingExpenseId = null;
+    } else {
+      state.expenses.unshift(exp);
+    }
+    
     saveToLocalStorage(); 
     if (typeof renderAll === 'function') renderAll();
     fbSet('expenses', exp.id, exp);

@@ -9,6 +9,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
   <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <!-- SheetJS for Native Excel Export -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>  <!-- ── TOAST ─────────────────────────────────────────── -->
@@ -240,9 +242,8 @@
 
       <!-- Pool Balance Hero -->
       <div class="hero-card">
-        <div class="hero-label">Pool Balance</div>
+        <div class="hero-label">Total Pool Capital</div>
         <div class="hero-amount" id="pool-balance">PKR 0</div>
-        <div class="hero-sub" id="pool-sub">No transactions yet</div>
         <div class="hero-glow"></div>
       </div>
 
@@ -286,6 +287,15 @@
           <span class="action-btn-arrow"><i class="ph ph-caret-right"></i></span>
         </button>
       </div>
+      
+      <!-- Export Data Button -->
+      <div id="export-actions" class="quick-actions hidden" style="margin-top: 12px; margin-bottom: 24px;">
+        <button class="action-btn" style="background: rgba(255,255,255,0.05); color: var(--text-muted); border: 1px solid rgba(255,255,255,0.1);" onclick="requireTeam(exportDataExcel)">
+          <span class="action-btn-icon" style="color: #00d4aa;"><i class="ph ph-microsoft-excel-logo"></i></span>
+          <span class="action-btn-text">Download Excel Report</span>
+          <span class="action-btn-arrow"><i class="ph ph-download-simple"></i></span>
+        </button>
+      </div>
 
       <!-- Group Balances Summary -->
       <div class="section-header">
@@ -326,6 +336,17 @@
 
     <!-- ═══ MEMBERS TAB ════════════════════════════════ -->
     <section id="tab-members" class="tab-section">
+
+      <!-- All Pool Balances -->
+      <div class="section-header" style="margin-top:24px;">
+        <h2 class="section-title" style="display:flex; align-items:center; gap:8px;">
+          <i class="ph-fill ph-users" style="color:var(--text2)"></i> All Pool Balances
+        </h2>
+        <span class="member-count-badge" id="pool-count" style="background:var(--bg3); color:var(--text2); border:1px solid var(--border2);">0</span>
+      </div>
+      <div id="pool-members-list" class="members-list">
+        <div class="empty-state small">No members</div>
+      </div>
 
       <!-- Sehri Group -->
       <div class="group-section-header sehri-header">
@@ -370,6 +391,7 @@
           <button class="filter-pill active" onclick="filterHistory('all', this)">All</button>
           <button class="filter-pill" onclick="filterHistory('sehri', this)"><i class="ph ph-sun-horizon"></i> Sehri</button>
           <button class="filter-pill" onclick="filterHistory('aftari', this)"><i class="ph ph-moon"></i> Aftari</button>
+          <button class="filter-pill" onclick="filterHistory('other', this)"><i class="ph ph-cube"></i> Other</button>
         </div>
       </div>
       <div id="history-list" class="entry-list">

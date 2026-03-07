@@ -3,6 +3,30 @@
 function getSehriMembers()  { return state.members.filter(m => m.inSehri); }
 function getAftariMembers() { return state.members.filter(m => m.inAftari); }
 
+/* ── ALL POOL BALANCES (GLOBAL) ───────────────────────── */
+function renderOverallMembers() {
+  const el = document.getElementById('pool-members-list');
+  const countEl = document.getElementById('pool-count');
+  if (!el || !countEl) return;
+
+  const members = state.members;
+  countEl.textContent = members.length;
+
+  if (members.length === 0) {
+    el.innerHTML = '<div class="empty-state small">No members</div>';
+    return;
+  }
+
+  el.innerHTML = members
+    .map(m => {
+      const b = getMemberBalance(m.id, null);
+      return { m, b };
+    })
+    .sort((a, x) => x.b.balance - a.b.balance)
+    .map(data => memberCardHTML(data.m, null, data.b))
+    .join('');
+}
+
 function renderSehriMembers() {
   const list = getSehriMembers();
   const el = document.getElementById('sehri-members-list');
@@ -27,8 +51,8 @@ function renderAftariMembers() {
   el.innerHTML = list.map(m => memberCardHTML(m, 'aftari')).join('');
 }
 
-function memberCardHTML(m, context) {
-  const { contributed, owed, balance } = getMemberBalance(m.id, context);
+function memberCardHTML(m, context, precalculatedBalance = null) {
+  const { contributed, owed, balance } = precalculatedBalance || getMemberBalance(m.id, context);
   const balClass = balance > 0 ? 'positive' : balance < 0 ? 'negative' : 'zero';
   const balSign  = balance > 0 ? '+' : '';
   const initials = m.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0,2);
@@ -95,6 +119,8 @@ function openMemberDetails(memberId) {
   
   const sehri = getMemberBalance(m.id, 'sehri');
   const aftari = getMemberBalance(m.id, 'aftari');
+  const other = getMemberBalance(m.id, 'other');
+  // overall combines all contexts, including 'other'
   const overall = getMemberBalance(m.id, null);
 
   const initials = m.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0,2);
@@ -121,7 +147,8 @@ function openMemberDetails(memberId) {
     </div>
 
     <!-- Breakdown Grid -->
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:24px;">
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:12px; margin-bottom:24px;">
+      
       <!-- Sehri Break -->
       <div style="background:var(--sehri-bg); border:1px solid var(--sehri-border); border-radius:12px; padding:16px;">
         <div style="font-size:14px; font-weight:800; color:var(--sehri); margin-bottom:12px; display:flex; align-items:center; gap:6px;"><i class="ph-fill ph-sun-horizon"></i> Sehri</div>
@@ -155,6 +182,24 @@ function openMemberDetails(memberId) {
           <span style="font-weight:800; color:${aftari.balance >= 0 ? 'var(--green)' : 'var(--red)'}">${aftari.balance > 0 ? '+' : ''}${formatPKR(aftari.balance)}</span>
         </div>
       </div>
+
+      <!-- Other Break -->
+      <div style="background:var(--bg3); border:1px solid var(--border2); border-radius:12px; padding:16px;">
+        <div style="font-size:14px; font-weight:800; color:var(--text); margin-bottom:12px; display:flex; align-items:center; gap:6px;"><i class="ph-fill ph-cube"></i> Other</div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:4px; font-size:13px;">
+          <span style="color:var(--text2)">Paid</span>
+          <span style="font-weight:700">${formatPKR(other.contributed)}</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:10px; font-size:13px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.05)">
+          <span style="color:var(--text2)">Used</span>
+          <span style="font-weight:700">${formatPKR(other.owed)}</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; font-size:14px;">
+          <span style="color:var(--text3); font-weight:700;">Bal:</span>
+          <span style="font-weight:800; color:${other.balance >= 0 ? 'var(--green)' : 'var(--red)'}">${other.balance > 0 ? '+' : ''}${formatPKR(other.balance)}</span>
+        </div>
+      </div>
+
     </div>
   `;
 
