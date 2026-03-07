@@ -18,7 +18,8 @@ const FIREBASE_CONFIG = {
 let state = {
   members: [],     // { id, name, inSehri, inAftari }
   expenses: [],    // { id, date, desc, splits:[{type,amount,memberIds}] }
-  collections: [], // { id, date, amountPerPerson, memberIds, note }
+  collections: [], // { id, date, desc, amount, memberId }
+  pins: { admin: '1234', team: '0000' } // synced from Firestore
 };
 
 /* ── ACCESS LEVELS ──────────────────────────────────── */
@@ -31,7 +32,6 @@ const ADMIN_PIN_KEY = 'sehri_admin_pin';   // default: 1234
 const TEAM_PIN_KEY  = 'sehri_team_pin';    // default: 0000
 const STATE_KEY     = 'sehri_state_v2';
 
-let db = null;
 let accessLevel = ACCESS.GUEST;
 let pendingAction = null;
 let pendingPinMode = null;  // 'team' | 'admin' | 'elevate'
@@ -110,6 +110,8 @@ function loadFromLocalStorage() {
   } catch(_) {}
 }
 
+let db = null; // Global Firestore reference
+
 /* ── FIREBASE ─────────────────────────────────────────── */
 function initFirebase(config) {
   try {
@@ -142,6 +144,17 @@ function initFirebase(config) {
       saveToLocalStorage(); renderAll();
     }, onSnapErr);
 
+    // Sync global settings (PINs)
+    db.collection('settings').doc('pins').onSnapshot(snap => {
+      if (snap.exists) {
+        state.pins = snap.data();
+        saveToLocalStorage();
+      } else {
+        // Init remote PINs if they don't exist yet
+        db.collection('settings').doc('pins').set(state.pins);
+      }
+    }, onSnapErr);
+
     // Mark as connected immediately — listeners are live
     setFbStatus('✅ Connected', 'ok');
     hideLoadingScreen();
@@ -166,11 +179,11 @@ function setFbStatus(msg, cls) {
 
 
 
-async function fbSet(col, id, data) {
-  if (db) await db.collection(col).doc(id).set(data);
+function fbSet(col, id, data) {
+  if (db) db.collection(col).doc(id).set(data).catch(e => console.error('fbSet',e));
 }
-async function fbDelete(col, id) {
-  if (db) await db.collection(col).doc(id).delete();
+function fbDelete(col, id) {
+  if (db) db.collection(col).doc(id).delete().catch(e => console.error('fbDel',e));
 }
 
 /* ── TOAST SYSTEM ─────────────────────────────────────── */
@@ -717,8 +730,8 @@ function updatePinDots() {
 
 function checkPin() {
   const mode = pendingPinMode;
-  const adminPin = localStorage.getItem(ADMIN_PIN_KEY) || '1234';
-  const teamPin  = localStorage.getItem(TEAM_PIN_KEY)  || '0000';
+  const adminPin = state.pins.admin;
+  const teamPin  = state.pins.team;
 
   let granted = false;
 
@@ -813,12 +826,15 @@ function saveNewPin() {
   if (p1.length < 4 || p1 !== p2) { document.getElementById('set-pin-error').classList.remove('hidden'); return; }
   
   if (currentSetPinMode === 'admin') {
-    localStorage.setItem(ADMIN_PIN_KEY, p1);
+    db.collection('settings').doc('pins').set({ admin: p1 }, { merge: true });
+    state.pins.admin = p1;
   } else {
-    localStorage.setItem(TEAM_PIN_KEY, p1);
+    db.collection('settings').doc('pins').set({ team: p1 }, { merge: true });
+    state.pins.team = p1;
   }
   
   closeSetPinModal();
+
   toast(`${currentSetPinMode === 'admin' ? 'Admin' : 'Team'} PIN updated!`, 'success');
 }
 
