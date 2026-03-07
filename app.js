@@ -778,19 +778,27 @@ function applyAccessLevel() {
 }
 
 function updateManagerUI() {
-  const icon    = document.getElementById('manager-icon');
-  const label   = document.getElementById('manager-label');
-  const badge   = document.getElementById('manager-badge');
+  const icon     = document.getElementById('manager-icon');
+  const label    = document.getElementById('manager-label');
+  const badge    = document.getElementById('manager-badge');
   const statusEl = document.getElementById('manager-status-text');
-  const toggleSetting = document.getElementById('manager-toggle-setting');
-  const actions = document.getElementById('quick-actions');
+  const actions  = document.getElementById('quick-actions');
 
-  if (icon)   icon.textContent = isManagerMode ? '🔓' : '🔒';
-  if (label)  label.textContent = isManagerMode ? 'Manager' : 'View';
-  if (badge)  badge.classList.toggle('active', isManagerMode);
-  if (statusEl) statusEl.textContent = isManagerMode ? '✅ Active — you can edit data' : 'Not active';
-  if (toggleSetting) { toggleSetting.textContent = isManagerMode ? 'ON' : 'OFF'; toggleSetting.classList.toggle('on', isManagerMode); }
-  if (actions) actions.classList.toggle('hidden', !isManagerMode);
+  const isAdmin = accessLevel === ACCESS.ADMIN;
+  const isTeam  = accessLevel === ACCESS.TEAM;
+
+  if (icon)  icon.textContent = isAdmin ? '🔐' : (isTeam ? '👥' : '👁️');
+  if (label) label.textContent = isAdmin ? 'Admin' : (isTeam ? 'Team' : 'Guest');
+  if (badge) badge.classList.toggle('active', isAdmin);
+
+  if (statusEl) {
+    if (isAdmin) statusEl.textContent = '🔐 Admin — Full edit access';
+    else if (isTeam) statusEl.textContent = '👥 Team — View only';
+    else statusEl.textContent = '👁️ Guest — Summary only';
+  }
+
+  // Hide quick actions for non-admins
+  if (actions) actions.classList.toggle('hidden', !isAdmin);
 }
 
 /* ── PIN SETTINGS ─────────────────────────────────────── */
