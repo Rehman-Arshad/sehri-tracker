@@ -1,4 +1,3 @@
-/* ── FIREBASE CONFIG ──────────────────────────────────── */
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyB5xaEAc0K6mpBioSD0IpxyIJdbPB7pXI8",
   authDomain: "calculation-be25c.firebaseapp.com",
@@ -11,6 +10,7 @@ const FIREBASE_CONFIG = {
 
 /* ── GLOBAL STATE ─────────────────────────────────────── */
 const STATE_KEY = 'sehri_state_v2';
+const CONFIG_KEY = 'sehri_fb_config';
 const ADMIN_PIN_KEY = 'sehri_admin_pin';   // default: 1234
 const TEAM_PIN_KEY  = 'sehri_team_pin';    // default: 0000
 
@@ -37,17 +37,31 @@ function loadFromLocalStorage() {
     if (raw) state = { ...state, ...JSON.parse(raw) };
   } catch(_) {}
 }
+function saveConfigToLocalStorage(config) {
+  try { localStorage.setItem(CONFIG_KEY, JSON.stringify(config)); } catch(_) {}
+}
+function getFirebaseConfig() {
+  try {
+    const raw = localStorage.getItem(CONFIG_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch(_) {}
+  return FIREBASE_CONFIG;
+}
 
 /* ── FIREBASE INITIALIZATION ──────────────────────────── */
 function initFirebase(config) {
+  if (!config || !config.apiKey) return;
   try {
-    let app;
-    try {
-      app = firebase.app('sehri');
-    } catch(_) {
-      app = firebase.initializeApp(config, 'sehri');
+    // Save for persistence
+    saveConfigToLocalStorage(config);
+
+    // Initialize Default App
+    if (firebase.apps.length > 0) {
+      db = firebase.firestore(); // Reuse existing
+    } else {
+      const app = firebase.initializeApp(config);
+      db = firebase.firestore(app);
     }
-    db = firebase.firestore(app);
 
     const onSnapErr = (err) => {
       console.error('Firestore error:', err);

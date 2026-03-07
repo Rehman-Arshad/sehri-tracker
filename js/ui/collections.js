@@ -59,7 +59,10 @@ function closeCollectModal() {
   document.getElementById('collect-modal').classList.add('hidden'); 
 }
 
+let _isSubmittingCollection = false;
 function submitCollection() {
+  if (_isSubmittingCollection) return;
+
   const date   = document.getElementById('collect-date').value;
   const perPerson = parseFloat(document.getElementById('collect-amount').value);
   const note   = document.getElementById('collect-note').value.trim();
@@ -70,13 +73,33 @@ function submitCollection() {
     .forEach(cb=>{ if(cb.checked) memberIds.push(cb.value); });
   if (memberIds.length===0) { toast('Select at least one member','error'); return; }
 
+  const saveBtn = document.querySelector('#collect-modal .modal-btn.save');
+  const originalText = saveBtn ? saveBtn.textContent : 'Save Collection';
+  if (saveBtn) {
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving...';
+  }
+  _isSubmittingCollection = true;
+
   const totalAmount = perPerson * memberIds.length;
   const col = { id:'col-'+Date.now(), type: currentCollectType, date, amountPerPerson: perPerson, memberIds, note };
-  state.collections.unshift(col);
-  saveToLocalStorage(); 
-  if (typeof renderAll === 'function') renderAll();
-  fbSet('collections', col.id, col);
-  closeCollectModal();
-  toast(`Collected ${formatPKR(totalAmount)} (${formatPKR(perPerson)}/ea) from ${memberIds.length} members!`, 'success');
+  
+  try {
+    state.collections.unshift(col);
+    saveToLocalStorage(); 
+    if (typeof renderAll === 'function') renderAll();
+    fbSet('collections', col.id, col);
+    closeCollectModal();
+    toast(`Collected ${formatPKR(totalAmount)} (${formatPKR(perPerson)}/ea) from ${memberIds.length} members!`, 'success');
+  } catch (err) {
+    console.error(err);
+    toast('Failed to save collection', 'error');
+  } finally {
+    _isSubmittingCollection = false;
+    if (saveBtn) {
+      saveBtn.disabled = false;
+      saveBtn.textContent = originalText;
+    }
+  }
 }
 

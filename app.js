@@ -52,7 +52,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Firebase in its OWN try/catch — always runs, even if render failed
   try {
-    initFirebase(FIREBASE_CONFIG);
+    const config = getFirebaseConfig();
+    initFirebase(config);
   } catch(e) {
     console.error('Firebase error:', e);
     setFbStatus('❌ Init failed: ' + e.message, 'err');
@@ -597,7 +598,6 @@ function switchTab(tabName, btn) {
 
 /* ── HELPERS ──────────────────────────────────────────── */
 function getMemberName(id) { return state.members.find(m=>m.id===id)?.name||'Unknown'; }
-function num(n) { return Math.round(Number(n)).toLocaleString('en-PK'); }
 function num(n) { return (Number(n)||0).toLocaleString(); }
 function formatPKR(n) { return 'PKR ' + num(n); }
 function setEl(id, val) { const e=document.getElementById(id); if(e) e.textContent=val; }
@@ -614,5 +614,4 @@ function capFirst(s) { return s.charAt(0).toUpperCase()+s.slice(1); }
 function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
-function setEl(id, val) { const e=document.getElementById(id); if(e) e.textContent=val; }
 

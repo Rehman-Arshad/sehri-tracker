@@ -85,7 +85,10 @@ function calculateExpenseTotal() {
   return total;
 }
 
+let _isSubmittingExpense = false;
 function submitExpense() {
+  if (_isSubmittingExpense) return;
+  
   const date = document.getElementById('exp-date').value;
   const desc = document.getElementById('exp-desc').value.trim();
   if (!date) { toast('Please select a date','error'); return; }
@@ -95,9 +98,9 @@ function submitExpense() {
 
   // Extract items
   const items = [];
-  let invalidItem = false;
   expenseLineItems.forEach(id => {
     const row = document.getElementById(id);
+    if (!row) return;
     const name = row.querySelector('.line-name').value.trim() || 'Item';
     const amount = parseFloat(row.querySelector('.line-amount').value) || 0;
     if (amount > 0) items.push({ name, amount });
@@ -110,6 +113,14 @@ function submitExpense() {
 
   if (splitAmong.length === 0) { toast('Select at least one member to split with','error'); return; }
 
+  const saveBtn = document.querySelector('#expense-modal .modal-btn.save');
+  const originalText = saveBtn ? saveBtn.textContent : 'Save Expense';
+  if (saveBtn) {
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving...';
+  }
+  _isSubmittingExpense = true;
+
   const exp = {
     id: 'exp-' + Date.now(),
     date,
@@ -120,12 +131,24 @@ function submitExpense() {
     splitAmong
   };
 
-  state.expenses.unshift(exp);
-  saveToLocalStorage(); 
-  if (typeof renderAll === 'function') renderAll();
-  fbSet('expenses', exp.id, exp);
-  closeExpenseModal();
-  toast('Expense saved successfully!', 'success');
+  try {
+    state.expenses.unshift(exp);
+    saveToLocalStorage(); 
+    if (typeof renderAll === 'function') renderAll();
+    fbSet('expenses', exp.id, exp);
+    
+    closeExpenseModal();
+    toast('Expense saved successfully!', 'success');
+  } catch (err) {
+    console.error(err);
+    toast('Failed to save expense', 'error');
+  } finally {
+    _isSubmittingExpense = false;
+    if (saveBtn) {
+      saveBtn.disabled = false;
+      saveBtn.textContent = originalText;
+    }
+  }
 }
 
 /* ── HISTORY RENDERING OVERRIDE ───────────────────────── */
