@@ -1,40 +1,44 @@
 /* ── TOKENS ─────────────────────────────────────────────── */
 :root {
-  --bg: #080812;
-  --bg2: #0f0f20;
-  --bg3: #16162e;
-  --card: #1c1c36;
-  --card2: #22223e;
-  --border: rgba(255,255,255,0.07);
-  --border2: rgba(255,255,255,0.12);
-  --text: #eeeeff;
-  --text2: #9090b8;
-  --text3: #50507a;
+  /* Premium Zinc Dark Palette */
+  --bg: #09090b;       /* zinc-950 */
+  --bg2: #18181b;      /* zinc-900 */
+  --bg3: #27272a;      /* zinc-800 */
+  --card: #18181b;     /* zinc-900 */
+  --card2: #27272a;    /* zinc-800 */
+  --border: #27272a;   /* zinc-800 */
+  --border2: #3f3f46;  /* zinc-700 */
+  
+  --text: #ffffff;     /* Pure white for max contrast */
+  --text2: #a1a1aa;    /* zinc-400 */
+  --text3: #71717a;    /* zinc-500 */
 
-  /* Brand */
-  --primary: #7c6aff;
-  --primary-glow: rgba(124,106,255,0.25);
-  --teal: #00d4aa;
-  --teal-glow: rgba(0,212,170,0.2);
+  /* Brand Accents */
+  --primary: #8b5cf6;  /* violet-500 */
+  --primary-glow: rgba(139, 92, 246, 0.25);
+  --teal: #10b981;     /* emerald-500 */
+  --teal-glow: rgba(16, 185, 129, 0.2);
 
-  /* Meal colors */
-  --sehri: #ffb347;
-  --sehri-bg: rgba(255,179,71,0.12);
-  --sehri-border: rgba(255,179,71,0.3);
-  --aftari: #7c6aff;
-  --aftari-bg: rgba(124,106,255,0.12);
-  --aftari-border: rgba(124,106,255,0.3);
+  /* Meal Types */
+  --sehri: #f59e0b;    /* amber-500 */
+  --sehri-bg: rgba(245, 158, 11, 0.1);
+  --sehri-border: rgba(245, 158, 11, 0.2);
+  --aftari: #8b5cf6;   /* violet-500 */
+  --aftari-bg: rgba(139, 92, 246, 0.1);
+  --aftari-border: rgba(139, 92, 246, 0.2);
 
-  --green: #00c896;
-  --red: #ff5a7a;
-  --yellow: #ffd166;
+  --green: #10b981;    /* emerald-500 */
+  --red: #ef4444;      /* red-500 */
+  --yellow: #f59e0b;   /* amber-500 */
 
-  --grad: linear-gradient(135deg, #7c6aff, #00d4aa);
-  --grad-sehri: linear-gradient(135deg, #ff9f2e, #ffcd5e);
-  --grad-aftari: linear-gradient(135deg, #7c6aff, #b06aff);
+  /* Modern Gradients */
+  --grad: linear-gradient(135deg, #8b5cf6, #3b82f6);
+  --grad-sehri: linear-gradient(135deg, #f59e0b, #fbbf24);
+  --grad-aftari: linear-gradient(135deg, #8b5cf6, #a855f7);
 
-  --shadow-lg: 0 20px 60px rgba(0,0,0,0.5);
-  --shadow-card: 0 4px 16px rgba(0,0,0,0.3);
+  /* Depth */
+  --shadow-lg: 0 20px 40px -10px rgba(0,0,0,0.8);
+  --shadow-card: 0 4px 20px rgba(0,0,0,0.4);
   --radius: 20px;
   --radius-sm: 12px;
   --radius-xs: 8px;
@@ -166,7 +170,7 @@ button { font-family: 'Inter', sans-serif; cursor: pointer; }
   height: 100%; padding: 0 16px; max-width: 600px; margin: 0 auto;
 }
 
-.header-icon-wrap { font-size: 26px; margin-right: 10px; filter: drop-shadow(0 0 8px #7c6aff88); }
+.header-icon-wrap { font-size: 26px; margin-right: 10px; color: var(--primary); filter: drop-shadow(0 0 8px var(--primary-glow)); }
 
 .header-title { display: flex; align-items: center; }
 .header-title h1 {
@@ -233,7 +237,7 @@ button { font-family: 'Inter', sans-serif; cursor: pointer; }
 }
 
 .stat-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-.stat-icon { font-size: 18px; }
+.stat-icon { font-size: 18px; color: var(--primary); }
 .stat-trend { font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 99px; }
 .stat-trend.positive { color: var(--green); background: rgba(0,200,150,0.12); }
 .stat-trend.negative { color: var(--red); background: rgba(255,90,122,0.12); }
@@ -253,10 +257,8 @@ button { font-family: 'Inter', sans-serif; cursor: pointer; }
 
 .expense-btn:hover { border-color: var(--teal); }
 .collect-btn:hover { border-color: var(--sehri); }
-
-.action-btn-icon { font-size: 24px; }
+.action-btn-icon { font-size: 32px; color: var(--primary); display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; }
 .action-btn-text { flex: 1; font-weight: 600; font-size: 15px; color: var(--text); }
-.action-btn-arrow { color: var(--text3); font-size: 18px; transition: transform 0.2s; }
 .action-btn:active .action-btn-arrow { transform: translateX(4px); }
 
 /* ── GROUP SUMMARY ──────────────────────────────────────── */
@@ -274,7 +276,9 @@ button { font-family: 'Inter', sans-serif; cursor: pointer; }
 .gs-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text2); margin-bottom: 4px; }
 .gs-value { font-family: 'Outfit', sans-serif; font-size: 18px; font-weight: 800; margin-bottom: 2px; }
 .sehri-card .gs-value { color: var(--sehri); }
+.sehri-card .gs-icon { color: var(--sehri); }
 .aftari-card .gs-value { color: var(--aftari); }
+.aftari-card .gs-icon { color: var(--aftari); }
 .gs-sub { font-size: 11px; color: var(--text3); }
 
 /* ── SECTION HEADER ─────────────────────────────────────── */
@@ -544,6 +548,7 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin
   background: var(--bg3); border: 1px solid var(--border);
   border-radius: var(--radius-xs); padding: 11px 12px;
   cursor: pointer; transition: all 0.15s; user-select: none;
+  opacity: 0.55;
 }
 .check-item input[type=checkbox] { display: none; }
 .check-box {
@@ -552,7 +557,7 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin
   display: flex; align-items: center; justify-content: center;
   font-size: 11px; font-weight: 700; transition: all 0.15s;
 }
-.check-item.checked { border-color: var(--primary); background: rgba(124,106,255,0.08); }
+.check-item.checked { border-color: var(--primary); background: rgba(124,106,255,0.08); opacity: 1; }
 .check-item.checked .check-box { background: var(--primary); border-color: var(--primary); color: #fff; }
 .check-item.checked .check-box::after { content: '✓'; }
 .check-name { font-size: 13px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -623,7 +628,7 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin
   background: var(--bg2); border: 1px solid var(--border2);
   border-radius: 24px; padding: 32px 24px; width: 100%; max-width: 340px; text-align: center;
 }
-.pin-icon { font-size: 42px; margin-bottom: 12px; }
+.pin-icon { font-size: 42px; margin-bottom: 12px; color: var(--primary); }
 .pin-card h2 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
 .pin-card > p { font-size: 13px; color: var(--text2); margin-bottom: 20px; }
 .pin-dots { display: flex; justify-content: center; gap: 14px; margin-bottom: 24px; }
@@ -752,9 +757,11 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin
 .guest-option { background: rgba(255,255,255,0.03); border-color: var(--border); }
 .guest-option:hover { background: rgba(255,255,255,0.06); border-color: var(--border2); }
 
-.access-opt-icon { font-size: 26px; flex-shrink: 0; }
-.access-opt-label { font-family: 'Outfit', sans-serif; font-size: 15px; font-weight: 700; }
-.team-option .access-opt-label { color: var(--teal); }
+.access-opt-icon { font-size: 32px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+.access-opt-label { font-family: 'Outfit', sans-serif;  font-size: 15px; font-weight: 700; color: var(--text); }
+.team-option .access-opt-icon { color: var(--green); }
+.admin-option .access-opt-icon { color: var(--primary); }
+.team-option .access-opt-label { color: var(--green); }
 .admin-option .access-opt-label { color: var(--primary); }
 .guest-option .access-opt-label { color: var(--text2); }
 .access-opt-desc { font-size: 12px; color: var(--text3); margin-top: 2px; }

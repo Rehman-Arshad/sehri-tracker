@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>  <!-- ── TOAST ─────────────────────────────────────────── -->
@@ -16,7 +17,7 @@
   <!-- ── LOADING SCREEN ────────────────────────────────── -->
   <div id="loading-screen" class="loading-screen">
     <div class="loading-content">
-      <div class="loading-moon">🌙</div>
+      <div class="loading-moon"><i class="ph-fill ph-moon"></i></div>
       <div class="loading-title">Sehri &amp; Aftari</div>
       <div class="loading-sub">Expense Tracker</div>
       <div class="loading-bar"><div class="loading-bar-fill"></div></div>
@@ -27,12 +28,12 @@
   <!-- ── ACCESS GATE ────────────────────────────────── -->
   <div id="access-gate" class="access-gate hidden">
     <div class="access-gate-card">
-      <div class="access-gate-moon">🌙</div>
+      <div class="access-gate-moon"><i class="ph-fill ph-moon"></i></div>
       <h2 class="access-gate-title">Sehri &amp; Aftari Tracker</h2>
       <p class="access-gate-sub">Choose your access level</p>
       <div class="access-options">
         <button class="access-option-btn team-option" onclick="openAccessPin('team')">
-          <span class="access-opt-icon">👥</span>
+          <span class="access-opt-icon"><i class="ph ph-users"></i></span>
           <div>
             <div class="access-opt-label">Team Member</div>
             <div class="access-opt-desc">View balances &amp; history</div>
@@ -40,7 +41,7 @@
           <span class="access-opt-arrow">›</span>
         </button>
         <button class="access-option-btn admin-option" onclick="openAccessPin('admin')">
-          <span class="access-opt-icon">🔐</span>
+          <span class="access-opt-icon"><i class="ph ph-lock-key"></i></span>
           <div>
             <div class="access-opt-label">Admin</div>
             <div class="access-opt-desc">Full access — add, edit &amp; delete</div>
@@ -54,7 +55,7 @@
   <!-- ── PIN LOCK OVERLAY ──────────────────────────────── -->
   <div id="pin-overlay" class="pin-overlay hidden">
     <div class="pin-card">
-      <div class="pin-icon" id="pin-overlay-icon">🔐</div>
+      <div class="pin-icon" id="pin-overlay-icon"><i class="ph ph-lock-key"></i></div>
       <h2 id="pin-overlay-title">Enter PIN</h2>
       <p id="pin-overlay-sub">Enter your 4-digit PIN</p>
       <div class="pin-dots" id="pin-dots">
@@ -82,7 +83,7 @@
   <div id="set-pin-modal" class="modal-overlay hidden">
     <div class="modal-card">
       <div class="modal-handle"></div>
-      <h3 id="set-pin-title">🔑 Change PIN</h3>
+      <h3 id="set-pin-title"><i class="ph ph-key"></i> Change PIN</h3>
       <p id="set-pin-desc">Set a new 4-digit PIN</p>
 
       <label class="input-label">New PIN</label>
@@ -101,17 +102,17 @@
   <div id="add-member-modal" class="modal-overlay hidden">
     <div class="modal-card">
       <div class="modal-handle"></div>
-      <h3>👤 Add Roommate</h3>
+      <h3><i class="ph ph-user-plus"></i> Add Roommate</h3>
       <p>Enter their name and assign to a meal group</p>
       <label class="input-label">Name</label>
       <input type="text" id="new-member-name" class="text-input" placeholder="Enter name" maxlength="30" />
       <label class="input-label">Assign to group(s)</label>
       <div class="group-assign-btns">
         <button class="group-assign-btn sehri-btn selected" id="assign-sehri" onclick="toggleGroupAssign('sehri')">
-          🌅 Sehri Group
+          <i class="ph ph-sun-horizon"></i> Sehri Group
         </button>
         <button class="group-assign-btn aftari-btn" id="assign-aftari" onclick="toggleGroupAssign('aftari')">
-          🌙 Aftari Group
+          <i class="ph ph-moon"></i> Aftari Group
         </button>
       </div>
       <p id="assign-error" class="pin-error hidden">Select at least one group</p>
@@ -126,14 +127,25 @@
   <div id="collect-modal" class="modal-overlay hidden">
     <div class="modal-card">
       <div class="modal-handle"></div>
-      <h3>💰 Collect Money</h3>
-      <p>Record a per-head contribution from members</p>
+      <h3><i class="ph ph-money"></i> Collect Money</h3>
+      <p>Log money collected from members</p>
+      
       <label class="input-label">Date</label>
       <input type="date" id="collect-date" class="text-input" />
+      
+      <label class="input-label">Collection Group</label>
+      <div class="split-types" style="margin-bottom:16px;">
+        <button class="type-pill sehri-pill selected" id="collect-type-sehri" onclick="selectCollectType('sehri')"><i class="ph ph-sun-horizon"></i> Sehri</button>
+        <button class="type-pill aftari-pill" id="collect-type-aftari" onclick="selectCollectType('aftari')"><i class="ph ph-moon"></i> Aftari</button>
+      </div>
+
       <label class="input-label">Amount per person (PKR)</label>
-      <input type="number" id="collect-amount" class="text-input" placeholder="e.g. 1000" />
+      <input type="number" id="collect-amount" class="text-input" placeholder="e.g. 3000" oninput="updateCollectCalc()" />
+      <div id="collect-calc" style="font-size:12px;color:var(--text3);margin-bottom:16px;">Select members to see total</div>
+      
       <label class="input-label">Select who paid</label>
       <div id="collect-member-checkboxes" class="checkbox-grid"></div>
+      
       <label class="input-label">Note (optional)</label>
       <input type="text" id="collect-note" class="text-input" placeholder="e.g. Ramadan Week 2" />
       <div class="modal-actions">
@@ -143,20 +155,60 @@
     </div>
   </div>
 
-  <!-- ── ADD EXPENSE MODAL ─────────────────────────────── -->
+  <!-- ── MEMBER DETAILS MODAL ──────────────────────────── -->
+  <div id="member-details-modal" class="modal-overlay hidden">
+    <div class="modal-card" style="padding-top:40px; position:relative;">
+      <button onclick="closeMemberDetails()" style="position:absolute; top:20px; right:20px; background:var(--card2); border:none; width:36px; height:36px; border-radius:50%; color:var(--text2); font-size:16px;">✕</button>
+      <div id="member-details-body"></div>
+    </div>
+  </div>
+
+  <!-- ── ENTRY DETAILS MODAL ─────────────────────────── -->
+  <div id="entry-details-modal" class="modal-overlay hidden">
+    <div class="modal-card" style="padding-top:40px; position:relative;">
+      <button onclick="closeEntryDetailsModal()" style="position:absolute; top:20px; right:20px; background:var(--card2); border:none; width:36px; height:36px; border-radius:50%; color:var(--text2); font-size:16px;">✕</button>
+      <div id="entry-details-body"></div>
+    </div>
+  </div>
+
+  <!-- ── ADD EXPENSE MODAL (ITEMIZED) ──────────────────── -->
   <div id="expense-modal" class="modal-overlay hidden">
     <div class="modal-card">
-      <div class="modal-handle"></div>
-      <h3>🍽️ Add Expense</h3>
-      <label class="input-label">Date</label>
-      <input type="date" id="exp-date" class="text-input" />
-      <label class="input-label">Description (optional)</label>
-      <input type="text" id="exp-desc" class="text-input" placeholder="e.g. 7 March expenses" />
-      <div id="expense-splits-container"></div>
-      <button class="btn-add-split" onclick="addSplitRow()">＋ Add Another Split</button>
+      <h2 class="modal-title">Log Expense</h2>
+      
+      <input type="date" class="text-input" id="exp-date" />
+      <input type="text" class="text-input" id="exp-desc" placeholder="Grocery store name, Event name, etc." style="margin-bottom: 24px;" />
+
+      <!-- Fund Type -->
+      <div class="split-members-label" style="font-size:12px;">Fund Category</div>
+      <div class="split-type-row" style="margin-bottom:16px;">
+        <button class="type-pill sehri-pill selected" id="exp-cat-sehri" onclick="setExpenseCategory('sehri')">🌅 Sehri</button>
+        <button class="type-pill aftari-pill" id="exp-cat-aftari" onclick="setExpenseCategory('aftari')">🌙 Aftari</button>
+        <button class="type-pill other-pill" id="exp-cat-other" onclick="setExpenseCategory('other')">📦 Other</button>
+      </div>
+
+      <!-- Line Items container -->
+      <div class="split-members-label" style="font-size:12px; display:flex; justify-content:space-between; align-items:flex-end;">
+        Line Items
+        <span id="exp-grand-total" style="font-size:18px; color:var(--primary-light); font-weight:800; font-family:'Outfit',sans-serif;">PKR 0</span>
+      </div>
+      <div id="exp-items-container" style="background:var(--bg3); border-radius:12px; padding:12px; margin-bottom:16px; display:flex; flex-direction:column; gap:8px;">
+        <!-- Injected by expenses.js -->
+      </div>
+      
+      <button class="secondary-btn" onclick="addExpenseLineItem()" style="margin-bottom:24px; padding:10px; font-size:14px; color:var(--primary-light); background:rgba(0,183,255,0.05); border:1px dashed var(--primary-light);">
+        + Add Item
+      </button>
+
+      <!-- Split Among Members -->
+      <div class="split-members-label" style="font-size:12px;">Split Among</div>
+      <div id="exp-member-checkboxes" class="checkbox-grid" style="margin-bottom:16px;">
+        <!-- Checkboxes injected by expenses.js -->
+      </div>
+      
       <div class="modal-actions">
-        <button class="btn-secondary" onclick="closeExpenseModal()">Cancel</button>
-        <button class="btn-primary" onclick="submitExpense()">Save Expense</button>
+        <button class="modal-btn cancel" onclick="closeExpenseModal()">Cancel</button>
+        <button class="modal-btn save" onclick="submitExpense()">Save Expense</button>
       </div>
     </div>
   </div>
@@ -165,13 +217,14 @@
   <header class="app-header">
     <div class="header-inner">
       <div class="header-title">
-        <div class="header-icon-wrap">🌙</div>
+        <div class="header-icon-wrap"><i class="ph-fill ph-moon"></i></div>
         <div>
           <h1>Sehri & Aftari</h1>
-          <span class="header-sub">Expense Tracker • Ramadan 2026
+          <span class="header-sub">Expense Tracker • Ramadan 2026</span>
+        </div>
       </div>
       <button class="manager-toggle-btn" id="manager-badge" onclick="toggleManagerMode()">
-        <span id="manager-icon">🔒</span>
+        <span id="manager-icon"><i class="ph ph-lock"></i></span>
         <span id="manager-label">View</span>
       </button>
     </div>
@@ -195,7 +248,7 @@
       <div class="stats-row">
         <div class="stat-card">
           <div class="stat-top">
-            <span class="stat-icon">📥</span>
+            <span class="stat-icon"><i class="ph ph-trend-down"></i></span>
             <span class="stat-trend positive" id="stat-collected-count"></span>
           </div>
           <div class="stat-value" id="total-collected">PKR 0</div>
@@ -203,7 +256,7 @@
         </div>
         <div class="stat-card">
           <div class="stat-top">
-            <span class="stat-icon">💸</span>
+            <span class="stat-icon"><i class="ph ph-trend-up"></i></span>
             <span class="stat-trend negative" id="stat-expense-count"></span>
           </div>
           <div class="stat-value" id="total-spent">PKR 0</div>
@@ -211,7 +264,7 @@
         </div>
         <div class="stat-card">
           <div class="stat-top">
-            <span class="stat-icon">👥</span>
+            <span class="stat-icon"><i class="ph ph-users"></i></span>
           </div>
           <div class="stat-value" id="total-members">0</div>
           <div class="stat-label">Members</div>
@@ -221,12 +274,12 @@
       <!-- Quick Action Buttons (manager only) -->
       <div id="quick-actions" class="quick-actions hidden">
         <button class="action-btn expense-btn" onclick="requireManager(openExpenseModal)">
-          <span class="action-btn-icon">🍽️</span>
+          <span class="action-btn-icon"><i class="ph ph-receipt"></i></span>
           <span class="action-btn-text">Add Expense</span>
           <span class="action-btn-arrow">→</span>
         </button>
         <button class="action-btn collect-btn" onclick="requireManager(openCollectModal)">
-          <span class="action-btn-icon">💰</span>
+          <span class="action-btn-icon"><i class="ph ph-wallet"></i></span>
           <span class="action-btn-text">Collect Money</span>
           <span class="action-btn-arrow">→</span>
         </button>
@@ -234,20 +287,24 @@
 
       <!-- Group Balances Summary -->
       <div class="section-header">
-        <h2 class="section-title">Today's Summary</h2>
+        <h2 class="section-title">Fund Balances</h2>
       </div>
-      <div class="group-summary-row">
-        <div class="group-summary-card sehri-card">
-          <div class="gs-icon">🌅</div>
-          <div class="gs-label">Sehri</div>
-          <div class="gs-value" id="sehri-today">PKR 0</div>
-          <div class="gs-sub" id="sehri-members-count">0 members</div>
+      <div class="group-summary-row" style="grid-template-columns: 1fr;">
+        <div class="group-summary-card sehri-card" style="display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <div class="gs-icon"><i class="ph-fill ph-sun-horizon"></i></div>
+            <div class="gs-label">Sehri Fund</div>
+            <div class="gs-sub" id="sehri-metrics-sub">In: 0 | Out: 0</div>
+          </div>
+          <div class="gs-value" id="sehri-total-bal" style="font-size:24px;">PKR 0</div>
         </div>
-        <div class="group-summary-card aftari-card">
-          <div class="gs-icon">🌙</div>
-          <div class="gs-label">Aftari</div>
-          <div class="gs-value" id="aftari-today">PKR 0</div>
-          <div class="gs-sub" id="aftari-members-count">0 members</div>
+        <div class="group-summary-card aftari-card" style="display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <div class="gs-icon"><i class="ph-fill ph-moon"></i></div>
+            <div class="gs-label">Aftari Fund</div>
+            <div class="gs-sub" id="aftari-metrics-sub">In: 0 | Out: 0</div>
+          </div>
+          <div class="gs-value" id="aftari-total-bal" style="font-size:24px;">PKR 0</div>
         </div>
       </div>
 
@@ -258,7 +315,7 @@
       </div>
       <div id="recent-list" class="entry-list">
         <div class="empty-state">
-          <div class="empty-icon">📋</div>
+          <div class="empty-icon"><i class="ph ph-clipboard-text"></i></div>
           <div class="empty-text">No entries yet</div>
           <div class="empty-sub">Add your first expense to get started</div>
         </div>
@@ -271,7 +328,7 @@
       <!-- Sehri Group -->
       <div class="group-section-header sehri-header">
         <div class="group-section-title">
-          <span class="group-emoji">🌅</span>
+          <span class="group-emoji"><i class="ph-fill ph-sun-horizon"></i></span>
           <span>Sehri Group</span>
           <span class="member-count-badge" id="sehri-count-badge">0</span>
         </div>
@@ -284,7 +341,7 @@
       <!-- Aftari Group -->
       <div class="group-section-header aftari-header" style="margin-top:20px">
         <div class="group-section-title">
-          <span class="group-emoji">🌙</span>
+          <span class="group-emoji"><i class="ph-fill ph-moon"></i></span>
           <span>Aftari Group</span>
           <span class="member-count-badge aftari-badge" id="aftari-count-badge">0</span>
         </div>
@@ -309,13 +366,13 @@
         <h2 class="section-title">Expense History</h2>
         <div class="filter-pills">
           <button class="filter-pill active" onclick="filterHistory('all', this)">All</button>
-          <button class="filter-pill" onclick="filterHistory('sehri', this)">🌅 Sehri</button>
-          <button class="filter-pill" onclick="filterHistory('aftari', this)">🌙 Aftari</button>
+          <button class="filter-pill" onclick="filterHistory('sehri', this)"><i class="ph ph-sun-horizon"></i> Sehri</button>
+          <button class="filter-pill" onclick="filterHistory('aftari', this)"><i class="ph ph-moon"></i> Aftari</button>
         </div>
       </div>
       <div id="history-list" class="entry-list">
         <div class="empty-state">
-          <div class="empty-icon">📊</div>
+          <div class="empty-icon"><i class="ph ph-chart-bar"></i></div>
           <div class="empty-text">No expenses yet</div>
         </div>
       </div>
@@ -328,7 +385,7 @@
         <div class="settings-card">
           <div class="settings-row" onclick="requireAdmin(openSetAdminPinModal)">
             <div class="settings-row-left">
-              <span class="settings-row-icon">🔐</span>
+              <span class="settings-row-icon"><i class="ph ph-lock-key"></i></span>
               <div>
                 <div class="settings-label">Admin PIN</div>
                 <div class="settings-desc">Full edit access • default: 1234</div>
@@ -339,7 +396,7 @@
           <div class="settings-divider"></div>
           <div class="settings-row" onclick="requireAdmin(openSetTeamPinModal)">
             <div class="settings-row-left">
-              <span class="settings-row-icon">👥</span>
+              <span class="settings-row-icon"><i class="ph ph-users"></i></span>
               <div>
                 <div class="settings-label">Team PIN</div>
                 <div class="settings-desc">View-only access • default: 0000</div>
@@ -350,7 +407,7 @@
           <div class="settings-divider"></div>
           <div class="settings-row">
             <div class="settings-row-left">
-              <span class="settings-row-icon">🛡️</span>
+              <span class="settings-row-icon"><i class="ph ph-shield-check"></i></span>
               <div>
                 <div class="settings-label">Current Access Level</div>
                 <div class="settings-desc" id="manager-status-text">Guest</div>
@@ -366,7 +423,7 @@
         <div class="settings-card">
           <div class="settings-row">
             <div class="settings-row-left">
-              <span class="settings-row-icon">🔥</span>
+              <span class="settings-row-icon"><i class="ph ph-fire"></i></span>
               <div>
                 <div class="settings-label">Sync Status</div>
                 <div class="settings-desc" id="firebase-status-small">Connecting...</div>
@@ -377,7 +434,7 @@
           <div class="settings-divider"></div>
           <div class="settings-row">
             <div class="settings-row-left">
-              <span class="settings-row-icon">📡</span>
+              <span class="settings-row-icon"><i class="ph ph-broadcast"></i></span>
               <div>
                 <div class="settings-label">Project</div>
                 <div class="settings-desc">calculation-be25c</div>
@@ -393,7 +450,7 @@
         <div class="settings-card">
           <div class="settings-row" onclick="exportData()">
             <div class="settings-row-left">
-              <span class="settings-row-icon">📤</span>
+              <span class="settings-row-icon"><i class="ph ph-export"></i></span>
               <div>
                 <div class="settings-label">Export Data</div>
                 <div class="settings-desc">Download as JSON backup</div>
@@ -404,7 +461,7 @@
           <div class="settings-divider"></div>
           <div class="settings-row" onclick="requireManager(clearAllData)">
             <div class="settings-row-left">
-              <span class="settings-row-icon">🗑️</span>
+              <span class="settings-row-icon"><i class="ph ph-trash"></i></span>
               <div>
                 <div class="settings-label" style="color:var(--red)">Clear All Data</div>
                 <div class="settings-desc">Permanently remove everything</div>
@@ -423,26 +480,34 @@
   <!-- ── BOTTOM NAV ────────────────────────────────────── -->
   <nav class="bottom-nav">
     <button class="nav-btn active" onclick="switchTab('dashboard', this)" id="nav-dashboard">
-      <span class="nav-icon">🏠</span>
+      <span class="nav-icon"><i class="ph ph-house"></i></span>
       <span class="nav-label">Home</span>
     </button>
     <button class="nav-btn" onclick="switchTab('members', this)" id="nav-members">
-      <span class="nav-icon">👥</span>
+      <span class="nav-icon"><i class="ph ph-users"></i></span>
       <span class="nav-label">Members</span>
     </button>
     <button class="nav-btn" onclick="switchTab('history', this)" id="nav-history">
-      <span class="nav-icon">📋</span>
+      <span class="nav-icon"><i class="ph ph-clipboard-text"></i></span>
       <span class="nav-label">History</span>
     </button>
     <button class="nav-btn" onclick="switchTab('settings', this)" id="nav-settings">
-      <span class="nav-icon">⚙️</span>
+      <span class="nav-icon"><i class="ph ph-gear"></i></span>
       <span class="nav-label">Settings</span>
     </button>
   </nav>
 
-  <!-- Firebase Compat SDK -->
+  <!-- Core Libraries -->
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+  <!-- App Modules -->
+  <script src="js/store.js"></script>
+  <script src="js/ui/dashboard.js"></script>
+  <script src="js/ui/members.js"></script>
+  <script src="js/ui/expenses.js"></script>
+  <script src="js/ui/collections.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
+
