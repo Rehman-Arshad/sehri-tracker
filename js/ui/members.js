@@ -62,14 +62,27 @@ function getMemberBalance(memberId, context) {
     .reduce((s,c) => s + Number(c.amountPerPerson), 0);
 
   const owed = state.expenses.reduce((s, e) => {
-    return s + e.splits.reduce((ss, sp) => {
-      // If sp.type is undefined (legacy), count it towards Sehri
-      const splitType = sp.type || 'sehri';
-      if ((!context || splitType === context) && sp.memberIds.includes(memberId)) {
-        return ss + Number(sp.amount) / sp.memberIds.length;
+    // 1. Handle New Itemized Format
+    if (e.category && e.splitAmong) {
+      if ((!context || e.category === context) && e.splitAmong.includes(memberId)) {
+        return s + (Number(e.totalAmount || 0) / e.splitAmong.length);
       }
-      return ss;
-    }, 0);
+      return s;
+    }
+    
+    // 2. Handle Legacy Split Format
+    if (e.splits) {
+      return s + e.splits.reduce((ss, sp) => {
+        // If sp.type is undefined (legacy), count it towards Sehri
+        const splitType = sp.type || 'sehri';
+        if ((!context || splitType === context) && (sp.memberIds || []).includes(memberId)) {
+          return ss + (Number(sp.amount || 0) / Math.max(1, sp.memberIds.length));
+        }
+        return ss;
+      }, 0);
+    }
+    
+    return s;
   }, 0);
 
   return { contributed, owed, balance: contributed - owed };
