@@ -149,8 +149,8 @@
       <label class="input-label">Note (optional)</label>
       <input type="text" id="collect-note" class="text-input" placeholder="e.g. Ramadan Week 2" />
       <div class="modal-actions">
-        <button class="btn-secondary" onclick="closeCollectModal()">Cancel</button>
-        <button class="btn-primary" onclick="submitCollection()">Save Collection</button>
+        <button class="modal-btn cancel" onclick="closeCollectModal()">Cancel</button>
+        <button class="modal-btn save" onclick="submitCollection()">Save Collection</button>
       </div>
     </div>
   </div>
@@ -174,7 +174,9 @@
   <!-- ── ADD EXPENSE MODAL (ITEMIZED) ──────────────────── -->
   <div id="expense-modal" class="modal-overlay hidden">
     <div class="modal-card">
-      <h2 class="modal-title">Log Expense</h2>
+      <div class="modal-handle"></div>
+      <h3>Log Expense</h3>
+      <p>Record a new itemized expense</p>
       
       <input type="date" class="text-input" id="exp-date" />
       <input type="text" class="text-input" id="exp-desc" placeholder="Grocery store name, Event name, etc." style="margin-bottom: 24px;" />
@@ -182,9 +184,9 @@
       <!-- Fund Type -->
       <div class="split-members-label" style="font-size:12px;">Fund Category</div>
       <div class="split-type-row" style="margin-bottom:16px;">
-        <button class="type-pill sehri-pill selected" id="exp-cat-sehri" onclick="setExpenseCategory('sehri')">🌅 Sehri</button>
-        <button class="type-pill aftari-pill" id="exp-cat-aftari" onclick="setExpenseCategory('aftari')">🌙 Aftari</button>
-        <button class="type-pill other-pill" id="exp-cat-other" onclick="setExpenseCategory('other')">📦 Other</button>
+        <button class="type-pill sehri-pill selected" id="exp-cat-sehri" onclick="setExpenseCategory('sehri')"><i class="ph-fill ph-sun-horizon"></i> Sehri</button>
+        <button class="type-pill aftari-pill" id="exp-cat-aftari" onclick="setExpenseCategory('aftari')"><i class="ph-fill ph-moon"></i> Aftari</button>
+        <button class="type-pill other-pill" id="exp-cat-other" onclick="setExpenseCategory('other')"><i class="ph ph-package"></i> Other</button>
       </div>
 
       <!-- Line Items container -->
@@ -276,12 +278,12 @@
         <button class="action-btn expense-btn" onclick="requireManager(openExpenseModal)">
           <span class="action-btn-icon"><i class="ph ph-receipt"></i></span>
           <span class="action-btn-text">Add Expense</span>
-          <span class="action-btn-arrow">→</span>
+          <span class="action-btn-arrow"><i class="ph ph-caret-right"></i></span>
         </button>
         <button class="action-btn collect-btn" onclick="requireManager(openCollectModal)">
           <span class="action-btn-icon"><i class="ph ph-wallet"></i></span>
           <span class="action-btn-text">Collect Money</span>
-          <span class="action-btn-arrow">→</span>
+          <span class="action-btn-arrow"><i class="ph ph-caret-right"></i></span>
         </button>
       </div>
 

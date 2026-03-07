@@ -108,3 +108,6 @@ function setFbStatus(msg, cls) {
   if (dot) dot.innerHTML = cls === 'ok' ? '<i class="ph-fill ph-check-circle"></i>' : cls === 'err' ? '<i class="ph-fill ph-warning-circle"></i>' : '<i class="ph-fill ph-hourglass"></i>';
 }
 
+function num(n) { return (Number(n)||0).toLocaleString(); }
+function formatPKR(n) { return 'PKR ' + num(n); }
+function setEl(id, val) { const e=document.getElementById(id); if(e) e.textContent=val; }

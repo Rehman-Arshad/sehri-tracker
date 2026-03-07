@@ -19,6 +19,8 @@ function renderDashboard() {
   setEl('pool-sub', `${formatPKR(totalCollected)} collected − ${formatPKR(totalSpent)} spent`);
 
   // General Stats
+  setEl('total-collected', formatPKR(totalCollected));
+  setEl('total-spent', formatPKR(totalSpent));
   setEl('total-members', String(state.members.length));
   const uniqueColDates = new Set(state.collections.map(c => c.date)).size;
   setEl('stat-collected-count', uniqueColDates + ' rounds');
@@ -48,19 +50,30 @@ function renderDashboard() {
 }
 
 function getFundMetrics(fundType) {
-  // Collections where type matches (or is undefined for legacy migration)
   const collected = state.collections
     .filter(c => c.type === fundType || (!c.type && fundType === 'sehri'))
-    .reduce((s, c) => s + (Number(c.amountPerPerson) * c.memberIds.length), 0);
+    .reduce((s, c) => {
+      const perHead = Number(c.amountPerPerson || 0);
+      const members = c.memberIds ? c.memberIds.length : 0;
+      return s + (perHead * members);
+    }, 0);
 
   // Expenses where the split type matches
   const spent = state.expenses.reduce((s, e) => {
-    return s + e.splits.reduce((ss, sp) => {
-      if (sp.type === fundType || (!sp.type && fundType === 'sehri')) {
-        return ss + Number(sp.amount);
-      }
-      return ss;
-    }, 0);
+    // New itemized format
+    if (e.category === fundType) {
+      return s + Number(e.totalAmount || 0);
+    }
+    // Legacy split format
+    if (e.splits) {
+      return s + e.splits.reduce((ss, sp) => {
+        if (sp.type === fundType || (!sp.type && fundType === 'sehri')) {
+          return ss + Number(sp.amount || 0);
+        }
+        return ss;
+      }, 0);
+    }
+    return s;
   }, 0);
 
   return { collected, spent, balance: collected - spent };

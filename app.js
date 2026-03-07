@@ -598,7 +598,9 @@ function switchTab(tabName, btn) {
 /* ── HELPERS ──────────────────────────────────────────── */
 function getMemberName(id) { return state.members.find(m=>m.id===id)?.name||'Unknown'; }
 function num(n) { return Math.round(Number(n)).toLocaleString('en-PK'); }
-function formatPKR(n) { return 'PKR '+num(n); }
+function num(n) { return (Number(n)||0).toLocaleString(); }
+function formatPKR(n) { return 'PKR ' + num(n); }
+function setEl(id, val) { const e=document.getElementById(id); if(e) e.textContent=val; }
 function formatDate(ds) {
   if (!ds) return '';
   return new Date(ds+'T00:00:00').toLocaleDateString('en-PK',{day:'numeric',month:'short',year:'numeric'});
