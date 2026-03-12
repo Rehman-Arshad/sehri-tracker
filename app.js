@@ -198,9 +198,25 @@ function renderEntryCard(entry, showDelete) {
     typeClass = entry.type === 'aftari' ? 'tag-aftari' : 'tag-sehri';
   } else {
     const isNew = !!entry.items;
-    const isAftari = isNew ? entry.category === 'aftari' : (entry.splits && entry.splits.some(s=>s.type==='aftari'));
-    typeLabel = isAftari ? '<i class="ph-fill ph-moon"></i> Aftari' : '<i class="ph-fill ph-sun-horizon"></i> Sehri';
-    typeClass = isAftari ? 'tag-aftari' : 'tag-sehri';
+    let category = 'sehri'; // default
+    
+    if (isNew) {
+      category = entry.category || 'sehri';
+    } else if (entry.splits && entry.splits.length > 0) {
+      // Legacy split parsing
+      category = entry.splits[0].type || 'sehri';
+    }
+
+    if (category === 'aftari') {
+      typeLabel = '<i class="ph-fill ph-moon"></i> Aftari';
+      typeClass = 'tag-aftari';
+    } else if (category === 'other') {
+      typeLabel = '<i class="ph-fill ph-cube"></i> Other';
+      typeClass = 'tag-other';
+    } else {
+      typeLabel = '<i class="ph-fill ph-sun-horizon"></i> Sehri';
+      typeClass = 'tag-sehri';
+    }
   }
 
   // Value processing
@@ -752,7 +768,7 @@ function formatDate(ds) {
 function mealLabel(type) {
   if (type==='sehri') return '<i class="ph-fill ph-sun-horizon"></i> Sehri';
   if (type==='aftari') return '<i class="ph-fill ph-moon"></i> Aftari';
-  return '<i class="ph-fill ph-package"></i> Other';
+  return '<i class="ph-fill ph-cube"></i> Other';
 }
 function capFirst(s) { return s.charAt(0).toUpperCase()+s.slice(1); }
 function escHtml(s) {
